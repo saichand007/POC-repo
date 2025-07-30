@@ -1,0 +1,1073 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import * as d3 from 'd3';
+
+// Mock Material UI components
+const AppBar = ({ children, position = 'fixed', className = '', ...props }) => (
+  <div className={`bg-white border-b shadow-sm ${position === 'fixed' ? 'fixed top-0 left-0 right-0 z-50' : ''} ${className}`} {...props}>
+    {children}
+  </div>
+);
+
+const Toolbar = ({ children, className = '', ...props }) => (
+  <div className={`flex items-center justify-between px-6 py-3 min-h-16 ${className}`} {...props}>
+    {children}
+  </div>
+);
+
+const Drawer = ({ children, variant = 'persistent', open = true, className = '', ...props }) => (
+  <div className={`bg-white border-r shadow-sm ${open ? 'block' : 'hidden'} ${className}`} {...props}>
+    {children}
+  </div>
+);
+
+const Paper = ({ children, className = '', elevation = 1, ...props }) => (
+  <div className={`bg-white rounded shadow-md ${className}`} style={{boxShadow: `0 ${elevation * 2}px ${elevation * 4}px rgba(0,0,0,0.1)`}} {...props}>
+    {children}
+  </div>
+);
+
+const Typography = ({ variant = 'body1', children, className = '', ...props }) => {
+  const variants = {
+    h4: 'text-2xl font-bold',
+    h5: 'text-xl font-semibold',
+    h6: 'text-lg font-semibold',
+    subtitle1: 'text-base font-medium',
+    subtitle2: 'text-sm font-medium',
+    body1: 'text-base',
+    body2: 'text-sm',
+    caption: 'text-xs text-gray-500'
+  };
+  return <div className={`${variants[variant]} ${className}`} {...props}>{children}</div>;
+};
+
+const IconButton = ({ children, onClick, className = '', ...props }) => (
+  <button 
+    className={`p-2 rounded-full hover:bg-gray-100 transition-colors ${className}`} 
+    onClick={onClick} 
+    {...props}
+  >
+    {children}
+  </button>
+);
+
+const Button = ({ children, variant = 'contained', color = 'primary', onClick, className = '', disabled, size = 'medium', ...props }) => {
+  const variants = {
+    contained: color === 'primary' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-600 text-white hover:bg-gray-700',
+    outlined: color === 'primary' ? 'border border-blue-600 text-blue-600 hover:bg-blue-50' : 'border border-gray-600 text-gray-600 hover:bg-gray-50',
+    text: color === 'primary' ? 'text-blue-600 hover:bg-blue-50' : 'text-gray-600 hover:bg-gray-50'
+  };
+  const sizes = {
+    small: 'px-2 py-1 text-sm',
+    medium: 'px-4 py-2',
+    large: 'px-6 py-3 text-lg'
+  };
+  return (
+    <button 
+      className={`rounded font-medium transition-colors ${variants[variant]} ${sizes[size]} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
+      onClick={onClick}
+      disabled={disabled}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+};
+
+const TextField = ({ label, value, onChange, placeholder, multiline, rows, className = '', fullWidth, size = 'medium', ...props }) => {
+  const sizes = {
+    small: 'px-2 py-1 text-sm',
+    medium: 'px-3 py-2'
+  };
+  return (
+    <div className={`${fullWidth ? 'w-full' : ''} ${className}`}>
+      {label && <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>}
+      {multiline ? (
+        <textarea
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          rows={rows}
+          className={`w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${sizes[size]}`}
+          {...props}
+        />
+      ) : (
+        <input
+          type="text"
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          className={`w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${sizes[size]}`}
+          {...props}
+        />
+      )}
+    </div>
+  );
+};
+
+const Select = ({ value, onChange, children, className = '', size = 'medium', ...props }) => {
+  const sizes = {
+    small: 'px-2 py-1 text-sm',
+    medium: 'px-3 py-2'
+  };
+  return (
+    <select 
+      value={value} 
+      onChange={onChange} 
+      className={`w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${sizes[size]} ${className}`}
+      {...props}
+    >
+      {children}
+    </select>
+  );
+};
+
+const MenuItem = ({ value, children, ...props }) => (
+  <option value={value} {...props}>{children}</option>
+);
+
+const Chip = ({ label, color = 'default', size = 'medium', ...props }) => {
+  const colors = {
+    default: 'bg-gray-200 text-gray-800',
+    primary: 'bg-blue-200 text-blue-800',
+    success: 'bg-green-200 text-green-800',
+    warning: 'bg-yellow-200 text-yellow-800',
+    secondary: 'bg-purple-200 text-purple-800'
+  };
+  const sizes = {
+    small: 'px-2 py-1 text-xs',
+    medium: 'px-3 py-1 text-sm'
+  };
+  return <span className={`rounded-full font-medium ${colors[color]} ${sizes[size]}`} {...props}>{label}</span>;
+};
+
+const Box = ({ children, className = '', ...props }) => (
+  <div className={className} {...props}>{children}</div>
+);
+
+const List = ({ children, className = '', ...props }) => (
+  <div className={`divide-y divide-gray-200 ${className}`} {...props}>{children}</div>
+);
+
+const ListItem = ({ children, className = '', onClick, ...props }) => (
+  <div className={`px-4 py-3 hover:bg-gray-50 cursor-pointer ${className}`} onClick={onClick} {...props}>
+    {children}
+  </div>
+);
+
+const ListItemIcon = ({ children, className = '', ...props }) => (
+  <div className={`mr-3 ${className}`} {...props}>{children}</div>
+);
+
+const ListItemText = ({ primary, secondary, className = '', ...props }) => (
+  <div className={className} {...props}>
+    <Typography variant="body2">{primary}</Typography>
+    {secondary && <Typography variant="caption">{secondary}</Typography>}
+  </div>
+);
+
+// Mock data for data lineage
+const lineageData = {
+  nodes: [
+    { id: 'source1', name: 'Customer Database', type: 'source', x: 100, y: 100 },
+    { id: 'source2', name: 'Product Catalog', type: 'source', x: 100, y: 200 },
+    { id: 'transform1', name: 'Data Cleaner', type: 'transform', x: 300, y: 150 },
+    { id: 'transform2', name: 'Feature Engineer', type: 'transform', x: 500, y: 150 },
+    { id: 'model1', name: 'Recommendation Model', type: 'model', x: 700, y: 100 },
+    { id: 'output1', name: 'Customer Insights', type: 'output', x: 700, y: 200 }
+  ],
+  links: [
+    { source: 'source1', target: 'transform1' },
+    { source: 'source2', target: 'transform1' },
+    { source: 'transform1', target: 'transform2' },
+    { source: 'transform2', target: 'model1' },
+    { source: 'transform2', target: 'output1' }
+  ]
+};
+
+// Navigation items
+const navigationItems = [
+  { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+  { id: 'pipelines', label: 'Pipelines', icon: '🔄', active: true },
+  { id: 'data-sources', label: 'Data Sources', icon: '🗄️' },
+  { id: 'monitoring', label: 'Monitoring', icon: '👁️' },
+  { id: 'settings', label: 'Settings', icon: '⚙️' }
+];
+
+// Context filter options
+const contextOptions = [
+  { value: 'general', label: 'General Pipeline' },
+  { value: 'data-quality', label: 'Data Quality' },
+  { value: 'performance', label: 'Performance Metrics' },
+  { value: 'troubleshooting', label: 'Troubleshooting' },
+  { value: 'compliance', label: 'Compliance & Governance' }
+];
+
+// Initial chat messages with links
+const initialMessages = [
+  { 
+    id: 1, 
+    text: "Hello! I can help you understand your data pipeline and answer questions about data lineage.", 
+    sender: 'bot', 
+    timestamp: new Date() 
+  },
+  { 
+    id: 2, 
+    text: "Here are some quick links to explore your pipeline:\n\n🔗 [📊 View Pipeline Overview](#viz) - See the complete data flow visualization\n🔗 [📈 Performance Metrics](#metrics) - Check pipeline statistics and health\n🔗 [🔍 Node Details](#nodes) - Explore individual components\n🔗 [📚 Documentation](#docs) - Access related documentation", 
+    sender: 'bot', 
+    timestamp: new Date() 
+  },
+  { 
+    id: 3, 
+    text: "What would you like to know about your data pipeline? Feel free to ask questions or click any of the links above to open the interactive pipeline overview panel!", 
+    sender: 'bot', 
+    timestamp: new Date() 
+  }
+];
+
+// Resizable hook for the right panel
+const useResizablePanel = (initialWidth, minWidth = 300) => {
+  const [width, setWidth] = useState(initialWidth);
+  const [isResizing, setIsResizing] = useState(false);
+
+  const startResize = useCallback((e) => {
+    setIsResizing(true);
+    e.preventDefault();
+  }, []);
+
+  const resize = useCallback((e) => {
+    if (isResizing) {
+      const newWidth = window.innerWidth - e.clientX;
+      // Allow panel to expand to nearly full window width, leaving small margin for chat
+      const maxAllowedWidth = window.innerWidth - 50; // Minimum 50px for chat
+      if (newWidth >= minWidth && newWidth <= maxAllowedWidth) {
+        setWidth(newWidth);
+      }
+    }
+  }, [isResizing, minWidth]);
+
+  const stopResize = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', resize);
+      document.addEventListener('mouseup', stopResize);
+      return () => {
+        document.removeEventListener('mousemove', resize);
+        document.removeEventListener('mouseup', stopResize);
+      };
+    }
+  }, [isResizing, resize, stopResize]);
+
+  return [width, startResize, isResizing];
+};
+
+// Data Lineage Visualization Component
+const DataLineageViz = ({ panelWidth = 400 }) => {
+  const svgRef = useRef();
+
+  useEffect(() => {
+    const svg = d3.select(svgRef.current);
+    svg.selectAll("*").remove();
+
+    // Dynamic sizing based on panel width
+    const width = Math.max(600, panelWidth - 80); // Minimum 600px, scales with panel
+    const height = 400;
+    const margin = { top: 20, right: 20, bottom: 20, left: 20 };
+
+    svg.attr("width", width).attr("height", height);
+
+    const g = svg.append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    // Scale factor based on available width
+    const scaleX = Math.min(1.2, (width - margin.left - margin.right) / 600);
+    const scaleY = 0.8;
+
+    // Color scheme for different node types
+    const colorScale = d3.scaleOrdinal()
+      .domain(['source', 'transform', 'model', 'output'])
+      .range(['#4CAF50', '#2196F3', '#FF9800', '#9C27B0']);
+
+    // Create links
+    const links = g.selectAll(".link")
+      .data(lineageData.links)
+      .enter().append("line")
+      .attr("class", "link")
+      .attr("x1", d => {
+        const sourceNode = lineageData.nodes.find(n => n.id === d.source);
+        return sourceNode.x * scaleX;
+      })
+      .attr("y1", d => {
+        const sourceNode = lineageData.nodes.find(n => n.id === d.source);
+        return sourceNode.y * scaleY;
+      })
+      .attr("x2", d => {
+        const targetNode = lineageData.nodes.find(n => n.id === d.target);
+        return targetNode.x * scaleX;
+      })
+      .attr("y2", d => {
+        const targetNode = lineageData.nodes.find(n => n.id === d.target);
+        return targetNode.y * scaleY;
+      })
+      .attr("stroke", "#666")
+      .attr("stroke-width", 2)
+      .attr("marker-end", "url(#arrowhead)")
+      .style("opacity", 0)
+      .transition()
+      .duration(1000)
+      .style("opacity", 1);
+
+    // Add arrowhead marker
+    svg.append("defs").append("marker")
+      .attr("id", "arrowhead")
+      .attr("viewBox", "0 -5 10 10")
+      .attr("refX", 15)
+      .attr("refY", 0)
+      .attr("markerWidth", 6)
+      .attr("markerHeight", 6)
+      .attr("orient", "auto")
+      .append("path")
+      .attr("d", "M0,-5L10,0L0,5")
+      .attr("fill", "#666");
+
+    // Create nodes
+    const nodes = g.selectAll(".node")
+      .data(lineageData.nodes)
+      .enter().append("g")
+      .attr("class", "node")
+      .attr("transform", d => `translate(${d.x * scaleX},${d.y * scaleY})`)
+      .style("cursor", "pointer");
+
+    // Dynamic node size based on available space
+    const nodeRadius = Math.min(25, Math.max(15, scaleX * 20));
+
+    nodes.append("circle")
+      .attr("r", nodeRadius)
+      .attr("fill", d => colorScale(d.type))
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 3)
+      .on("mouseover", function(event, d) {
+        d3.select(this).attr("r", nodeRadius * 1.2);
+      })
+      .on("mouseout", function(event, d) {
+        d3.select(this).attr("r", nodeRadius);
+      });
+
+    nodes.append("text")
+      .attr("dy", nodeRadius + 15)
+      .attr("text-anchor", "middle")
+      .style("font-size", `${Math.max(10, scaleX * 10)}px`)
+      .style("font-weight", "bold")
+      .text(d => {
+        // Truncate text based on available space
+        const maxLength = scaleX > 1 ? d.name.length : Math.max(8, Math.floor(scaleX * 15));
+        return d.name.length > maxLength ? d.name.substring(0, maxLength) + '...' : d.name;
+      });
+
+    // Add icons to nodes
+    nodes.append("text")
+      .attr("text-anchor", "middle")
+      .attr("dy", 5)
+      .style("font-size", `${Math.max(12, nodeRadius * 0.6)}px`)
+      .style("fill", "white")
+      .text(d => {
+        switch(d.type) {
+          case 'source': return '🗄️';
+          case 'transform': return '⚙️';
+          case 'model': return '🤖';
+          case 'output': return '📊';
+          default: return '📦';
+        }
+      });
+
+  }, [panelWidth]);
+
+  return (
+    <Paper className="p-4 mb-4">
+      <svg ref={svgRef} style={{ width: '100%', height: 'auto' }}></svg>
+    </Paper>
+  );
+};
+
+// Pipeline Overview Panel Component
+const PipelineOverviewPanel = ({ isOpen, onClose, width, onResizeStart, isResizing }) => {
+  const documentReferences = [
+    { id: 1, title: "Data Pipeline Documentation", type: "technical", description: "Complete technical documentation" },
+    { id: 2, title: "Workflow Standards", type: "process", description: "Standard operating procedures" },
+    { id: 3, title: "Data Quality Guidelines", type: "quality", description: "Data quality guidelines" },
+    { id: 4, title: "Model Training Procedures", type: "ml", description: "Model training procedures" }
+  ];
+
+  if (!isOpen) return null;
+
+  return (
+    <Box 
+      className="fixed top-16 right-0 bottom-16 bg-white border-l shadow-lg z-40 flex flex-col"
+      style={{ width: `${width}px` }}
+    >
+      {/* Resize Handle */}
+      <div
+        className={`absolute left-0 top-0 bottom-0 w-2 cursor-col-resize transition-all duration-200 ${
+          isResizing 
+            ? 'bg-blue-500 shadow-lg' 
+            : 'bg-gray-300 hover:bg-blue-400 hover:shadow-md'
+        }`}
+        onMouseDown={onResizeStart}
+        title="Drag to resize panel (can expand to full width)"
+      >
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white text-xs">
+          ⋮⋮
+        </div>
+      </div>
+
+      {/* Header */}
+      <Box className="flex items-center justify-between p-4 border-b bg-blue-600 text-white">
+        <Typography variant="h6" className="flex items-center">
+          📊 Pipeline Overview
+        </Typography>
+        <IconButton onClick={onClose} className="text-white">
+          ✕
+        </IconButton>
+      </Box>
+
+      {/* Content */}
+      <Box className="flex-1 overflow-y-auto p-4">
+        {/* Visualization */}
+        <Box className="mb-6">
+          <Typography variant="subtitle2" className="mb-3">
+            🌳 Data Flow Visualization
+          </Typography>
+          <DataLineageViz panelWidth={width} />
+        </Box>
+
+        {/* Node Types Legend */}
+        <Paper className="p-4 mb-4">
+          <Typography variant="subtitle2" className="mb-3">
+            🏷️ Node Types
+          </Typography>
+          <Box className="grid grid-cols-2 gap-2">
+            <Box className="flex items-center space-x-2">
+              <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+              <span className="text-sm">🗄️ Source</span>
+            </Box>
+            <Box className="flex items-center space-x-2">
+              <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
+              <span className="text-sm">⚙️ Transform</span>
+            </Box>
+            <Box className="flex items-center space-x-2">
+              <div className="w-4 h-4 bg-yellow-600 rounded-full"></div>
+              <span className="text-sm">🤖 Model</span>
+            </Box>
+            <Box className="flex items-center space-x-2">
+              <div className="w-4 h-4 bg-purple-500 rounded-full"></div>
+              <span className="text-sm">📊 Output</span>
+            </Box>
+          </Box>
+        </Paper>
+
+        {/* Pipeline Statistics */}
+        <Paper className="p-4 mb-4">
+          <Typography variant="subtitle2" className="mb-3">
+            📈 Pipeline Statistics
+          </Typography>
+          <Box className="grid grid-cols-2 gap-4 text-sm">
+            <Box>
+              <Typography variant="caption">Total Nodes</Typography>
+              <Typography variant="h6">6</Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption">Connections</Typography>
+              <Typography variant="h6">5</Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption">Processing Time</Typography>
+              <Typography variant="h6">2.3s</Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption">Success Rate</Typography>
+              <Typography variant="h6">99.2%</Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption">Records/Min</Typography>
+              <Typography variant="h6">10K</Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption">Data Quality</Typography>
+              <Typography variant="h6">98.7%</Typography>
+            </Box>
+          </Box>
+        </Paper>
+
+        {/* Current Status */}
+        <Paper className="p-4 mb-4">
+          <Typography variant="subtitle2" className="mb-3">
+            🚦 Current Status
+          </Typography>
+          <Box className="space-y-2">
+            <Box className="flex justify-between items-center">
+              <span className="text-sm">Pipeline Health</span>
+              <Chip label="Healthy" color="success" size="small" />
+            </Box>
+            <Box className="flex justify-between items-center">
+              <span className="text-sm">Active Jobs</span>
+              <span className="text-sm font-medium">3</span>
+            </Box>
+            <Box className="flex justify-between items-center">
+              <span className="text-sm">Last Run</span>
+              <span className="text-sm text-gray-600">2 mins ago</span>
+            </Box>
+          </Box>
+        </Paper>
+
+        {/* Recent Activity */}
+        <Paper className="p-4 mb-4">
+          <Typography variant="subtitle2" className="mb-3">
+            🔄 Recent Activity
+          </Typography>
+          <Box className="space-y-3 text-sm">
+            <Box className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span>Data Cleaner completed successfully</span>
+            </Box>
+            <Box className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <span>Feature Engineer processing batch #127</span>
+            </Box>
+            <Box className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+              <span>Model retraining scheduled</span>
+            </Box>
+          </Box>
+        </Paper>
+
+        {/* Documentation Links */}
+        <Paper className="p-4">
+          <Typography variant="subtitle2" className="mb-3">
+            📚 Related Documentation
+          </Typography>
+          <Box className="space-y-2">
+            {documentReferences.map((doc) => (
+              <Box 
+                key={doc.id} 
+                className="p-2 bg-gray-50 rounded cursor-pointer hover:bg-gray-100 transition-colors"
+              >
+                <Typography variant="body2" className="font-medium">
+                  {doc.title}
+                </Typography>
+                <Typography variant="caption" className="text-gray-600">
+                  {doc.description}
+                </Typography>
+                <Box className="mt-1">
+                  <Chip label={doc.type} size="small" />
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        </Paper>
+      </Box>
+    </Box>
+  );
+};
+
+// Context Filter Component
+const ContextFilter = ({ selectedContext, onContextChange, customContext, onCustomContextChange, uploadedFile, onFileUpload }) => {
+  const [filterType, setFilterType] = useState('dropdown');
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      onFileUpload(file);
+    }
+  };
+
+  return (
+    <Paper className="p-2 m-2 border" elevation={0}>
+      <Typography variant="caption" className="mb-2 block text-gray-600">
+        🎯 Add context to improve responses
+      </Typography>
+      
+      <Box className="flex gap-1 mb-2 flex-wrap">
+        <Button
+          variant={filterType === 'dropdown' ? 'contained' : 'outlined'}
+          onClick={() => setFilterType('dropdown')}
+          size="small"
+          className="min-w-0"
+        >
+          📋
+        </Button>
+        <Button
+          variant={filterType === 'input' ? 'contained' : 'outlined'}
+          onClick={() => setFilterType('input')}
+          size="small"
+          className="min-w-0"
+        >
+          ✏️
+        </Button>
+        <Button
+          variant={filterType === 'file' ? 'contained' : 'outlined'}
+          onClick={() => setFilterType('file')}
+          size="small"
+          className="min-w-0"
+        >
+          📎
+        </Button>
+      </Box>
+
+      {filterType === 'dropdown' && (
+        <Select
+          value={selectedContext}
+          onChange={(e) => onContextChange(e.target.value)}
+          size="small"
+        >
+          {contextOptions.map(option => (
+            <MenuItem key={option.value} value={option.value}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </Select>
+      )}
+
+      {filterType === 'input' && (
+        <TextField
+          fullWidth
+          multiline
+          rows={2}
+          placeholder="Add specific context..."
+          value={customContext}
+          onChange={(e) => onCustomContextChange(e.target.value)}
+          size="small"
+        />
+      )}
+
+      {filterType === 'file' && (
+        <Box>
+          <input
+            type="file"
+            accept=".txt,.json,.csv,.md"
+            onChange={handleFileUpload}
+            className="hidden"
+            id="context-file-upload"
+          />
+          <label htmlFor="context-file-upload">
+            <Button variant="outlined" component="span" size="small" fullWidth className="min-w-0 text-xs">
+              {uploadedFile ? `📄 ${uploadedFile.name.length > 15 ? uploadedFile.name.substring(0, 15) + '...' : uploadedFile.name}` : '📎 Upload File'}
+            </Button>
+          </label>
+        </Box>
+      )}
+    </Paper>
+  );
+};
+
+// Message Component with Link Handling
+const MessageContent = ({ text, onOpenOverview }) => {
+  const handleLinkClick = (e, href) => {
+    e.preventDefault();
+    console.log('Link clicked:', href); // Debug log
+    if (href && (href.includes('#viz') || href.includes('#nodes') || href.includes('#metrics') || href.includes('#docs'))) {
+      onOpenOverview();
+    }
+  };
+
+  // Parse text and convert [text](link) to clickable links
+  const parseLinks = (text) => {
+    if (!text) return text;
+    
+    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    const parts = [];
+    let lastIndex = 0;
+    let matchCount = 0;
+
+    // Reset regex state
+    linkRegex.lastIndex = 0;
+
+    let match;
+    while ((match = linkRegex.exec(text)) !== null) {
+      // Prevent infinite loops
+      if (matchCount > 50) break;
+      matchCount++;
+
+      // Add text before the link
+      if (match.index > lastIndex) {
+        parts.push(text.substring(lastIndex, match.index));
+      }
+      
+      // Extract link text and href safely
+      const linkText = match[1] || 'Link';
+      const href = match[2] || '#';
+      
+      // Add the link
+      parts.push(
+        <button
+          key={`link-${match.index}-${matchCount}`}
+          onClick={(e) => handleLinkClick(e, href)}
+          className="text-blue-600 hover:text-blue-800 underline cursor-pointer mx-1"
+        >
+          {linkText}
+        </button>
+      );
+      
+      lastIndex = linkRegex.lastIndex;
+      
+      // Prevent infinite loop on zero-width matches
+      if (match.index === linkRegex.lastIndex) {
+        linkRegex.lastIndex++;
+      }
+    }
+    
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push(text.substring(lastIndex));
+    }
+    
+    return parts.length > 1 ? parts : text;
+  };
+
+  return <span className="whitespace-pre-line">{parseLinks(text)}</span>;
+};
+
+// Claude-style Chat Component
+const ClaudeChatWindow = ({ 
+  selectedContext, 
+  customContext, 
+  uploadedFile, 
+  onContextChange, 
+  onCustomContextChange, 
+  onFileUpload,
+  chatWidth 
+}) => {
+  const [messages, setMessages] = useState(initialMessages);
+  const [newMessage, setNewMessage] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [showOverviewPanel, setShowOverviewPanel] = useState(false);
+  const [overviewPanelWidth, startResize, isResizing] = useResizablePanel(400);
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const getContextualResponse = (userMessage, context, customCtx, file) => {
+    const keyword = userMessage.toLowerCase();
+    let baseResponse = "";
+
+    // Add quick access links for common requests
+    if (keyword.includes('show') || keyword.includes('view') || keyword.includes('see') || keyword.includes('open') || keyword.includes('display')) {
+      baseResponse = "Here are the available views for your pipeline:\n\n🔗 [📊 Pipeline Overview](#viz) - Complete data flow visualization\n🔗 [📈 Performance Metrics](#metrics) - Statistics and health monitoring\n🔗 [🔍 Component Details](#nodes) - Individual node information\n\nWhat specific aspect would you like to explore?";
+      return baseResponse;
+    }
+
+    // Help/guidance requests
+    if (keyword.includes('help') || keyword.includes('how') || keyword.includes('what can')) {
+      baseResponse = "I can help you with:\n\n• Understanding your data pipeline architecture\n• Explaining data transformations and flows\n• Monitoring performance and quality metrics\n• Troubleshooting pipeline issues\n\n🔗 [📊 Open Pipeline Overview](#viz) to see the interactive visualization, or ask me specific questions about your data pipeline!";
+      return baseResponse;
+    }
+
+    // Context-aware responses with links
+    if (context === 'data-quality') {
+      if (keyword.includes('quality') || keyword.includes('clean')) {
+        baseResponse = "Based on the data quality context, our Data Cleaner transformation handles validation, deduplication, and schema enforcement. Current quality metrics show 99.2% clean data rate. You can [view the data quality dashboard](#viz) for detailed metrics.";
+      } else {
+        baseResponse = "From a data quality perspective, I can help you understand how our pipeline ensures data integrity through validation rules and quality checks. Check out the [quality monitoring visualization](#viz) for real-time insights.";
+      }
+    } else if (context === 'performance') {
+      baseResponse = "Looking at performance metrics, the pipeline processes ~10K records/minute. The Feature Engineer is our current bottleneck at 2.3s average processing time. See the [performance visualization](#metrics) for detailed breakdowns.";
+    } else if (context === 'troubleshooting') {
+      baseResponse = "For troubleshooting, I can help trace data flow issues. Common problems occur at the Data Cleaner stage (validation failures) and model inference timeouts. View the [pipeline flow diagram](#viz) to identify bottlenecks.";
+    } else if (context === 'compliance') {
+      baseResponse = "From a compliance standpoint, all data transformations maintain audit logs. PII is encrypted at the Customer Database source and throughout the pipeline. The [compliance dashboard](#viz) shows all audit trails.";
+    } else {
+      // General responses based on keywords
+      if (keyword.includes('source') || keyword.includes('database')) {
+        baseResponse = "I can see from the data lineage that we have two main sources: Customer Database and Product Catalog. Both feed into our Data Cleaner transformation. Check the [data lineage visualization](#viz) to see the complete flow.";
+      } else if (keyword.includes('transform') || keyword.includes('clean')) {
+        baseResponse = "The data flows through our Data Cleaner and Feature Engineer transformations. These steps ensure data quality and prepare features for our ML models. View the [transformation pipeline](#nodes) for details.";
+      } else if (keyword.includes('model') || keyword.includes('recommendation')) {
+        baseResponse = "The Recommendation Model processes data from both customer and product sources after they've been cleaned and engineered. It outputs to Customer Insights. See the [model architecture diagram](#viz) for the complete picture.";
+      } else if (keyword.includes('output') || keyword.includes('insight')) {
+        baseResponse = "The workflow culminates in Customer Insights, which provides actionable intelligence based on the processed data from our pipeline. Explore the [output analysis dashboard](#metrics) for detailed insights.";
+      } else {
+        const responses = [
+          "Based on the current pipeline configuration, I can help explain any component or data flow you're interested in. Take a look at the [complete pipeline visualization](#viz) to get started.",
+          "Looking at the lineage visualization, I can trace how data moves through each transformation stage. The [interactive pipeline diagram](#viz) shows all connections and dependencies.",
+          "The workflow shows clear dependencies between components. What specific aspect would you like to explore? Check out the [data flow visualization](#nodes) for a comprehensive overview.",
+        ];
+        baseResponse = responses[Math.floor(Math.random() * responses.length)];
+      }
+    }
+
+    // Add helpful links for follow-up
+    const shouldAddQuickLinks = Math.random() < 0.3; // 30% chance to add quick links
+    if (shouldAddQuickLinks && !baseResponse.includes('[')) {
+      baseResponse += "\n\n💡 Quick links: [📊 Pipeline Overview](#viz) | [📈 Metrics](#metrics) | [🔍 Details](#nodes)";
+    }
+
+    // Add context information if available
+    if (customCtx) {
+      baseResponse += `\n\n💡 Considering your custom context: "${customCtx.substring(0, 50)}..."`;
+    }
+    if (file) {
+      baseResponse += `\n\n📄 Using context from uploaded file: ${file.name}`;
+    }
+
+    return baseResponse;
+  };
+
+  const handleSendMessage = () => {
+    if (newMessage.trim()) {
+      const userMessage = {
+        id: messages.length + 1,
+        text: newMessage,
+        sender: 'user',
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, userMessage]);
+      setIsTyping(true);
+      
+      // Simulate bot response with context
+      setTimeout(() => {
+        setIsTyping(false);
+        const botResponse = {
+          id: messages.length + 2,
+          text: getContextualResponse(newMessage, selectedContext, customContext, uploadedFile),
+          sender: 'bot',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, botResponse]);
+      }, 1500);
+      
+      setNewMessage('');
+    }
+  };
+
+  const handleKeyPress = (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const openOverviewPanel = () => {
+    setShowOverviewPanel(true);
+  };
+
+  const closeOverviewPanel = () => {
+    setShowOverviewPanel(false);
+  };
+
+  return (
+    <>
+      <Box 
+        className="flex flex-col h-full transition-all duration-300"
+        style={{ 
+          marginRight: showOverviewPanel ? `${overviewPanelWidth}px` : '0px'
+        }}
+      >
+        {/* Claude-style Messages */}
+        <Box className="flex-1 overflow-y-auto px-2 py-6 w-full">
+          <Box className={`mx-auto ${showOverviewPanel && overviewPanelWidth > window.innerWidth * 0.7 ? 'max-w-lg' : 'max-w-4xl'}`}>
+            {messages.map((message) => (
+              <Box key={message.id} className="mb-8">
+                {message.sender === 'bot' && (
+                  <Box className="flex items-start space-x-3">
+                    <Box className="w-8 h-8 bg-gradient-to-r from-orange-400 to-red-500 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                      C
+                    </Box>
+                    <Box className="flex-1 min-w-0">
+                      <Typography variant="body1" className="leading-relaxed text-gray-800 break-words">
+                        <MessageContent text={message.text} onOpenOverview={openOverviewPanel} />
+                      </Typography>
+                    </Box>
+                  </Box>
+                )}
+                
+                {message.sender === 'user' && (
+                  <Box className="flex items-start space-x-3 justify-end">
+                    <Box className="flex-1 text-right min-w-0">
+                      <Box className="inline-block bg-blue-600 text-white px-4 py-2 rounded-2xl max-w-full break-words">
+                        <Typography variant="body1">
+                          {message.text}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Box className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm flex-shrink-0">
+                      👤
+                    </Box>
+                  </Box>
+                )}
+              </Box>
+            ))}
+            
+            {isTyping && (
+              <Box className="mb-8">
+                <Box className="flex items-start space-x-3">
+                  <Box className="w-8 h-8 bg-gradient-to-r from-orange-400 to-red-500 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                    C
+                  </Box>
+                  <Box className="flex-1">
+                    <Box className="flex items-center space-x-1 text-gray-500">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                    </Box>
+                  </Box>
+                </Box>
+              </Box>
+            )}
+            
+            <div ref={messagesEndRef} />
+          </Box>
+        </Box>
+        
+        {/* Claude-style Input */}
+        <Box className="border-t bg-white p-2">
+          <Box className={`mx-auto ${showOverviewPanel && overviewPanelWidth > window.innerWidth * 0.7 ? 'max-w-lg px-2' : 'max-w-4xl px-4'}`}>
+            <Box className="relative">
+              <TextField
+                fullWidth
+                multiline
+                maxRows={4}
+                placeholder="Ask about your data pipeline..."
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                className="pr-12"
+                size="medium"
+              />
+              <IconButton
+                onClick={handleSendMessage}
+                disabled={!newMessage.trim()}
+                className="absolute right-2 bottom-2 bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300"
+              >
+                ▶️
+              </IconButton>
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Context Filter */}
+        <Box className={showOverviewPanel && overviewPanelWidth > window.innerWidth * 0.7 ? 'px-1' : ''}>
+          <ContextFilter
+            selectedContext={selectedContext}
+            onContextChange={onContextChange}
+            customContext={customContext}
+            onCustomContextChange={onCustomContextChange}
+            uploadedFile={uploadedFile}
+            onFileUpload={onFileUpload}
+          />
+        </Box>
+      </Box>
+
+      {/* Pipeline Overview Panel */}
+      <PipelineOverviewPanel 
+        isOpen={showOverviewPanel} 
+        onClose={closeOverviewPanel}
+        width={overviewPanelWidth}
+        onResizeStart={startResize}
+        isResizing={isResizing}
+      />
+    </>
+  );
+};
+
+// Navigation Component
+const Navigation = ({ drawerOpen, onDrawerToggle }) => {
+  return (
+    <Drawer variant="persistent" open={drawerOpen} className="w-64 flex-shrink-0">
+      <Box className="w-64 mt-16">
+        <Box className="p-4 border-b">
+          <Typography variant="h6">Pipeline Manager</Typography>
+        </Box>
+        <List>
+          {navigationItems.map((item) => (
+            <ListItem
+              key={item.id}
+              className={`flex items-center ${item.active ? 'bg-blue-50 border-r-4 border-blue-600' : ''}`}
+            >
+              <ListItemIcon>
+                <span className="text-xl">{item.icon}</span>
+              </ListItemIcon>
+              <ListItemText primary={item.label} />
+            </ListItem>
+          ))}
+        </List>
+      </Box>
+    </Drawer>
+  );
+};
+
+// Footer Component
+const Footer = () => {
+  return (
+    <Box className="bg-gray-50 border-t p-4 text-center">
+      <Typography variant="caption" className="text-gray-600">
+        Data Pipeline Chat Assistant v2.0 | Powered by Claude API
+      </Typography>
+    </Box>
+  );
+};
+
+// Main App Component
+const App = () => {
+  const [drawerOpen, setDrawerOpen] = useState(true);
+  const [selectedContext, setSelectedContext] = useState('general');
+  const [customContext, setCustomContext] = useState('');
+  const [uploadedFile, setUploadedFile] = useState(null);
+
+  const toggleDrawer = () => {
+    setDrawerOpen(!drawerOpen);
+  };
+
+  const handleFileUpload = (file) => {
+    setUploadedFile(file);
+  };
+
+  return (
+    <Box className="flex flex-col h-screen bg-gray-50">
+      {/* Header */}
+      <AppBar position="fixed">
+        <Toolbar>
+          <IconButton onClick={toggleDrawer} className="mr-4">
+            ☰
+          </IconButton>
+          <Typography variant="h6" className="flex-1 text-gray-800">
+            🚀 Data Pipeline Assistant
+          </Typography>
+          <IconButton>
+            👤
+          </IconButton>
+        </Toolbar>
+      </AppBar>
+
+      {/* Main Layout */}
+      <Box className="flex flex-1 mt-16">
+        {/* Side Navigation */}
+        <Navigation drawerOpen={drawerOpen} onDrawerToggle={toggleDrawer} />
+
+        {/* Main Chat Area (Full Width) */}
+        <Box className={`flex-1 bg-white transition-all duration-300 ${drawerOpen ? 'ml-64' : 'ml-0'}`}>
+          <ClaudeChatWindow
+            selectedContext={selectedContext}
+            customContext={customContext}
+            uploadedFile={uploadedFile}
+            onContextChange={setSelectedContext}
+            onCustomContextChange={setCustomContext}
+            onFileUpload={handleFileUpload}
+          />
+        </Box>
+      </Box>
+
+      {/* Footer */}
+      <Footer />
+    </Box>
+  );
+};
+
+export default App;

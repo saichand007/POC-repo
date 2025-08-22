@@ -1,420 +1,311 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Box, 
-  AppBar, 
-  Toolbar, 
-  IconButton, 
-  Typography, 
-  TextField, 
-  Button, 
-  Paper, 
-  Divider, 
-  Drawer, 
-  Avatar,
-  Badge,
-  Tooltip
-} from '@mui/material';
-import { 
-  Send, 
-  Close, 
-  Minimize, 
-  Code, 
-  DragHandle,
-  Menu,
-  ExpandMore,
-  ExpandLess
-} from '@mui/icons-material';
-import * as d3 from 'd3';
+import React, { useMemo, useState } from "react";
+import {
+  Box,
+  Paper,
+  Typography,
+  TextField,
+  Grid,
+  Divider,
+  Button,
+  IconButton,
+  Tooltip,
+  Chip,
+  MenuItem,
+  Select,
+  InputLabel,
+  FormControl,
+  Stack,
+} from "@mui/material";
+import {
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  InfoOutlined as InfoIcon,
+} from "@mui/icons-material";
 
-const ChatWindow = () => {
-  const [messages, setMessages] = useState([
-    { id: 1, text: 'Hello! How can I help you today?', sender: 'bot' },
+// --- Types & helpers --------------------------------------------------------
+const FIELD_TYPES = ["Table", "Text", "Number", "Date"];
+const EXTRACTION_TYPES = ["Explicit", "Implicit", "Heuristic"];
+const COLUMN_VALUE_TYPES = ["String", "Number", "Boolean", "Date"];
+
+const MAX_FIELD_NAME = 300;
+const MAX_INSTRUCTION = 255;
+
+const defaultColumns = [
+  { name: "product_name", type: "String", description: "Name of purchased product" },
+  { name: "unit_amount", type: "Number", description: "Amount of product purchased" },
+  { name: "unit_price", type: "Number", description: "Price per unit of product" },
+];
+
+const emptyColumn = { name: "", type: "String", description: "" };
+
+// --- Column Row -------------------------------------------------------------
+function ColumnRow({ sectionIdx, colIdx, column, onChange, onDelete }) {
+  return (
+    <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+      <Grid container spacing={2} alignItems="center">
+        <Grid item xs={12} md={4}>
+          <TextField
+            fullWidth
+            size="small"
+            label="Column name"
+            placeholder="product_name"
+            value={column.name}
+            onChange={(e) => onChange(sectionIdx, colIdx, { ...column, name: e.target.value })}
+            inputProps={{ maxLength: 128 }}
+          />
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <FormControl fullWidth size="small">
+            <InputLabel>Type</InputLabel>
+            <Select
+              label="Type"
+              value={column.type}
+              onChange={(e) => onChange(sectionIdx, colIdx, { ...column, type: e.target.value })}
+            >
+              {COLUMN_VALUE_TYPES.map((t) => (
+                <MenuItem key={t} value={t}>
+                  {t}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid item xs={12} md={4.5}>
+          <TextField
+            fullWidth
+            multiline
+            minRows={2}
+            label="Description"
+            placeholder="What does this column capture?"
+            value={column.description}
+            onChange={(e) => onChange(sectionIdx, colIdx, { ...column, description: e.target.value })}
+          />
+        </Grid>
+        <Grid item xs={12} md={0.5} sx={{ display: "flex", justifyContent: { xs: "flex-end", md: "center" } }}>
+          <Tooltip title="Remove column">
+            <IconButton onClick={() => onDelete(sectionIdx, colIdx)} aria-label={`delete-column-${sectionIdx}-${colIdx}`}>
+              <DeleteIcon />
+            </IconButton>
+          </Tooltip>
+        </Grid>
+      </Grid>
+    </Paper>
+  );
+}
+
+// --- Column Section ---------------------------------------------------------
+function ColumnSection({ idx, section, onAddColumn, onChangeColumn, onDeleteColumn, onDeleteSection }) {
+  return (
+    <Box sx={{ mb: 3 }}>
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+        <Typography variant="subtitle1" fontWeight={700}>
+          Column Specific fields
+        </Typography>
+        <Chip size="small" label={`Section ${idx + 1}`} />
+        <Chip size="small" label={`${section.columns.length} column${section.columns.length !== 1 ? "s" : ""}`} />
+        <Box sx={{ flex: 1 }} />
+        {onDeleteSection && idx > 0 && (
+          <Button color="error" size="small" onClick={() => onDeleteSection(idx)}>Remove section</Button>
+        )}
+      </Stack>
+
+      <Stack spacing={1.5}>
+        {section.columns.map((col, cIdx) => (
+          <ColumnRow
+            key={`${idx}-${cIdx}-${col.name}`}
+            sectionIdx={idx}
+            colIdx={cIdx}
+            column={col}
+            onChange={onChangeColumn}
+            onDelete={onDeleteColumn}
+          />
+        ))}
+      </Stack>
+
+      <Box sx={{ mt: 2 }}>
+        <Button startIcon={<AddIcon />} variant="outlined" onClick={() => onAddColumn(idx)}>
+          Add column
+        </Button>
+      </Box>
+
+      <Divider sx={{ my: 3 }} />
+    </Box>
+  );
+}
+
+// --- Main Form --------------------------------------------------------------
+export default function AddFieldsForm() {
+  const [fieldName, setFieldName] = useState("SERVICE_TABLE");
+  const [instruction, setInstruction] = useState(
+    "Line items listing purchased products, unit amount and unit cost"
+  );
+  const [type, setType] = useState("Table");
+  const [extractionType, setExtractionType] = useState("Explicit");
+
+  // sections: each has its own set of columns
+  const [sections, setSections] = useState([
+    { columns: defaultColumns },
   ]);
-  const [inputValue, setInputValue] = useState('');
-  const [showDataPanel, setShowDataPanel] = useState(true);
-  const [panelMinimized, setPanelMinimized] = useState(false);
-  const [panelWidth, setPanelWidth] = useState(400);
-  const [isDragging, setIsDragging] = useState(false);
-  const chatContainerRef = useRef(null);
-  const d3ContainerRef = useRef(null);
-  const dragHandleRef = useRef(null);
 
-  // Mock data for D3 visualization
-  const mockData = {
-    name: "Data Source",
-    children: [
-      { 
-        name: "Extraction",
-        children: [
-          { name: "API Call", value: 100 },
-          { name: "Data Validation", value: 80 }
-        ]
-      },
-      { 
-        name: "Transformation",
-        children: [
-          { name: "Cleaning", value: 120 },
-          { name: "Normalization", value: 90 },
-          { name: "Feature Engineering", value: 110 }
-        ]
-      },
-      { 
-        name: "Loading",
-        children: [
-          { name: "Database Write", value: 70 },
-          { name: "Cache Update", value: 60 }
-        ]
-      }
-    ]
+  const remainingName = useMemo(
+    () => Math.max(0, MAX_FIELD_NAME - fieldName.length),
+    [fieldName]
+  );
+  const remainingInstruction = useMemo(
+    () => Math.max(0, MAX_INSTRUCTION - instruction.length),
+    [instruction]
+  );
+
+  // --- Section & Column handlers -------------------------------------------
+  const addSection = () => {
+    setSections((prev) => [...prev, { columns: [ { ...emptyColumn } ] }]);
+  };
+  const deleteSection = (sIdx) => {
+    setSections((prev) => prev.filter((_, i) => i !== sIdx));
   };
 
-  // Initialize D3 visualization
-  useEffect(() => {
-    if (!showDataPanel || !d3ContainerRef.current) return;
-
-    const width = panelWidth - 40;
-    const height = panelMinimized ? 60 : 500;
-
-    // Clear previous visualization
-    d3.select(d3ContainerRef.current).selectAll("*").remove();
-
-    const svg = d3.select(d3ContainerRef.current)
-      .append("svg")
-      .attr("width", width)
-      .attr("height", height)
-      .attr("viewBox", [0, 0, width, height])
-      .attr("style", "max-width: 100%; height: auto; font: 10px sans-serif;");
-
-    const root = d3.hierarchy(mockData);
-    const treeLayout = d3.tree().size([width - 40, height - 100]);
-
-    treeLayout(root);
-
-    // Draw the links
-    svg.append("g")
-      .attr("fill", "none")
-      .attr("stroke", "#555")
-      .attr("stroke-opacity", 0.4)
-      .attr("stroke-width", 1.5)
-      .selectAll("path")
-      .data(root.links())
-      .join("path")
-      .attr("d", d3.linkHorizontal()
-        .x(d => d.y)
-        .y(d => d.x));
-
-    // Draw the nodes
-    const node = svg.append("g")
-      .selectAll("g")
-      .data(root.descendants())
-      .join("g")
-      .attr("transform", d => `translate(${d.y},${d.x})`);
-
-    node.append("circle")
-      .attr("fill", d => d.children ? "#555" : "#999")
-      .attr("r", 6);
-
-    node.append("text")
-      .attr("dy", "0.31em")
-      .attr("x", d => d.children ? -12 : 12)
-      .attr("text-anchor", d => d.children ? "end" : "start")
-      .text(d => d.data.name)
-      .clone(true).lower()
-      .attr("stroke", "white")
-      .attr("stroke-width", 3);
-
-  }, [showDataPanel, panelMinimized, panelWidth]);
-
-  // Handle drag events for resizing panel
-  useEffect(() => {
-    if (!dragHandleRef.current) return;
-
-    const handleMouseDown = (e) => {
-      setIsDragging(true);
-      document.body.style.cursor = 'col-resize';
-    };
-
-    const handleMouseMove = (e) => {
-      if (!isDragging) return;
-      const newWidth = window.innerWidth - e.clientX;
-      if (newWidth > 300 && newWidth < 800) {
-        setPanelWidth(newWidth);
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-      document.body.style.cursor = '';
-    };
-
-    const dragHandle = dragHandleRef.current;
-    dragHandle.addEventListener('mousedown', handleMouseDown);
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      dragHandle.removeEventListener('mousedown', handleMouseDown);
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging]);
-
-  const handleSendMessage = () => {
-    if (inputValue.trim() === '') return;
-
-    // Add user message
-    const newUserMessage = { 
-      id: messages.length + 1, 
-      text: inputValue, 
-      sender: 'user' 
-    };
-    
-    setMessages([...messages, newUserMessage]);
-    setInputValue('');
-
-    // Simulate bot response after a delay
-    setTimeout(() => {
-      const botResponse = { 
-        id: messages.length + 2, 
-        text: `I received your message: "${inputValue}". This is a simulated response.`, 
-        sender: 'bot' 
-      };
-      setMessages(prev => [...prev, botResponse]);
-      
-      // Scroll to bottom
-      if (chatContainerRef.current) {
-        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-      }
-    }, 1000);
+  const addColumn = (sIdx) => {
+    setSections((prev) =>
+      prev.map((s, i) => (i === sIdx ? { ...s, columns: [...s.columns, { ...emptyColumn }] } : s))
+    );
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
+  const changeColumn = (sIdx, cIdx, updated) => {
+    setSections((prev) =>
+      prev.map((s, i) =>
+        i === sIdx
+          ? { ...s, columns: s.columns.map((c, j) => (j === cIdx ? updated : c)) }
+          : s
+      )
+    );
+  };
+
+  const deleteColumn = (sIdx, cIdx) => {
+    setSections((prev) =>
+      prev.map((s, i) =>
+        i === sIdx ? { ...s, columns: s.columns.filter((_, j) => j !== cIdx) } : s
+      )
+    );
+  };
+
+  const reset = () => {
+    setFieldName("SERVICE_TABLE");
+    setInstruction(
+      "Line items listing purchased products, unit amount and unit cost"
+    );
+    setType("Table");
+    setExtractionType("Explicit");
+    setSections([{ columns: defaultColumns }]);
+  };
+
+  const submit = () => {
+    const payload = {
+      fieldName,
+      instruction,
+      type,
+      extractionType,
+      sections,
+    };
+    alert("Submitted!\n\n" + JSON.stringify(payload, null, 2));
   };
 
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      height: '100vh', 
-      flexDirection: 'column',
-      backgroundColor: '#f7f7f8'
-    }}>
-      {/* Header */}
-      <AppBar position="static" color="default" elevation={0} sx={{ 
-        backgroundColor: 'white', 
-        borderBottom: '1px solid #e5e5e5'
-      }}>
-        <Toolbar>
-          <Avatar 
-            sx={{ 
-              bgcolor: '#10a37f', 
-              width: 32, 
-              height: 32,
-              mr: 2
-            }}
-          >
-            C
-          </Avatar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Claude
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1200, mx: "auto" }}>
+      <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, borderRadius: 3, border: 1, borderColor: "divider" }}>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+          <Typography variant="h6" fontWeight={700}>
+            Add fields
           </Typography>
-          <Tooltip title="Toggle Data Panel">
-            <IconButton 
-              color="inherit" 
-              onClick={() => setShowDataPanel(!showDataPanel)}
-              sx={{ color: showDataPanel ? '#10a37f' : 'inherit' }}
-            >
-              <Code />
-            </IconButton>
+          <Tooltip title="Create new fields for extraction and normalization tasks.">
+            <InfoIcon fontSize="small" />
           </Tooltip>
-        </Toolbar>
-      </AppBar>
+        </Stack>
+        <Typography variant="body2" sx={{ color: "text.secondary", mb: 3 }}>
+          Create new fields for extraction and normalization tasks.
+        </Typography>
 
-      {/* Main Content */}
-      <Box sx={{ 
-        display: 'flex', 
-        flexGrow: 1, 
-        overflow: 'hidden',
-        position: 'relative'
-      }}>
-        {/* Chat Panel */}
-        <Box sx={{ 
-          flexGrow: 1, 
-          display: 'flex', 
-          flexDirection: 'column',
-          height: '100%',
-          overflow: 'hidden'
-        }}>
-          {/* Messages Container */}
-          <Box 
-            ref={chatContainerRef}
-            sx={{ 
-              flexGrow: 1, 
-              overflowY: 'auto', 
-              p: 2,
-              backgroundColor: 'white'
-            }}
-          >
-            {messages.map((message) => (
-              <Box 
-                key={message.id} 
-                sx={{ 
-                  mb: 2,
-                  display: 'flex',
-                  justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start'
-                }}
-              >
-                <Paper
-                  elevation={0}
-                  sx={{
-                    p: 2,
-                    maxWidth: '80%',
-                    backgroundColor: message.sender === 'user' ? '#10a37f' : '#f0f0f0',
-                    color: message.sender === 'user' ? 'white' : 'inherit',
-                    borderRadius: message.sender === 'user' 
-                      ? '18px 18px 0 18px' 
-                      : '18px 18px 18px 0'
-                  }}
-                >
-                  <Typography variant="body1">{message.text}</Typography>
-                </Paper>
-              </Box>
-            ))}
-          </Box>
-
-          {/* Input Area */}
-          <Box sx={{ 
-            p: 2, 
-            borderTop: '1px solid #e5e5e5',
-            backgroundColor: 'white'
-          }}>
-            <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
-              <TextField
-                fullWidth
-                multiline
-                maxRows={4}
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Message Claude..."
-                variant="outlined"
-                sx={{ 
-                  mr: 1,
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '24px',
-                    backgroundColor: '#f7f7f8'
-                  }
-                }}
-              />
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleSendMessage}
-                disabled={inputValue.trim() === ''}
-                sx={{ 
-                  minWidth: '48px', 
-                  height: '48px', 
-                  borderRadius: '50%',
-                  backgroundColor: '#10a37f',
-                  '&:hover': {
-                    backgroundColor: '#0d8a6d'
-                  }
-                }}
-              >
-                <Send />
-              </Button>
-            </Box>
-            <Typography variant="caption" sx={{ mt: 1, display: 'block', textAlign: 'center', color: '#666' }}>
-              Claude can make mistakes. Consider checking important information.
-            </Typography>
-          </Box>
-        </Box>
-
-        {/* Data Visualization Panel */}
-        {showDataPanel && (
-          <>
-            <Box 
-              ref={dragHandleRef}
-              sx={{
-                width: '8px',
-                cursor: 'col-resize',
-                backgroundColor: isDragging ? '#10a37f' : 'transparent',
-                '&:hover': {
-                  backgroundColor: '#e5e5e5'
-                }
-              }}
+        {/* Field name / Instruction */}
+        <Grid container spacing={2} alignItems="flex-start">
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Field name"
+              value={fieldName}
+              onChange={(e) => setFieldName(e.target.value)}
+              inputProps={{ maxLength: MAX_FIELD_NAME }}
+              helperText={`${remainingName} characters left`}
             />
-            <Paper 
-              elevation={0}
-              sx={{ 
-                width: panelWidth,
-                height: '100%',
-                borderLeft: '1px solid #e5e5e5',
-                display: 'flex',
-                flexDirection: 'column',
-                backgroundColor: '#f7f7f8',
-                overflow: 'hidden'
-              }}
-            >
-              {/* Panel Header */}
-              <Box sx={{ 
-                p: 1,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                backgroundColor: 'white',
-                borderBottom: '1px solid #e5e5e5'
-              }}>
-                <Typography variant="subtitle1" sx={{ ml: 1 }}>
-                  Data Lineage
-                </Typography>
-                <Box>
-                  <IconButton 
-                    size="small" 
-                    onClick={() => setPanelMinimized(!panelMinimized)}
-                  >
-                    {panelMinimized ? <ExpandMore /> : <ExpandLess />}
-                  </IconButton>
-                  <IconButton 
-                    size="small" 
-                    onClick={() => setShowDataPanel(false)}
-                  >
-                    <Close />
-                  </IconButton>
-                </Box>
-              </Box>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Instruction"
+              value={instruction}
+              onChange={(e) => setInstruction(e.target.value)}
+              inputProps={{ maxLength: MAX_INSTRUCTION }}
+              helperText={`${remainingInstruction} characters left`}
+            />
+          </Grid>
 
-              {/* Panel Content */}
-              <Box 
-                ref={d3ContainerRef}
-                sx={{ 
-                  flexGrow: 1,
-                  p: 2,
-                  overflow: 'auto',
-                  display: panelMinimized ? 'none' : 'block'
-                }}
-              />
-              
-              {panelMinimized && (
-                <Box sx={{ 
-                  p: 2,
-                  textAlign: 'center',
-                  color: '#666'
-                }}>
-                  <Typography variant="caption">
-                    Data lineage panel minimized
-                  </Typography>
-                </Box>
-              )}
-            </Paper>
-          </>
-        )}
-      </Box>
+          <Grid item xs={12} md={6}>
+            <FormControl fullWidth>
+              <InputLabel>Type</InputLabel>
+              <Select label="Type" value={type} onChange={(e) => setType(e.target.value)}>
+                {FIELD_TYPES.map((t) => (
+                  <MenuItem key={t} value={t}>
+                    {t}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <FormControl fullWidth>
+              <InputLabel>Extractions type</InputLabel>
+              <Select
+                label="Extractions type"
+                value={extractionType}
+                onChange={(e) => setExtractionType(e.target.value)}
+              >
+                {EXTRACTION_TYPES.map((t) => (
+                  <MenuItem key={t} value={t}>
+                    {t}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+        </Grid>
+
+        <Divider sx={{ my: 3 }} />
+
+        {sections.map((section, sIdx) => (
+          <ColumnSection
+            key={`section-${sIdx}`}
+            idx={sIdx}
+            section={section}
+            onAddColumn={addColumn}
+            onChangeColumn={changeColumn}
+            onDeleteColumn={deleteColumn}
+            onDeleteSection={deleteSection}
+          />
+        ))}
+
+        <Grid container justifyContent="space-between" alignItems="center">
+          <Grid item>
+            <Button color="inherit" onClick={reset}>Cancel</Button>
+          </Grid>
+          <Grid item>
+            <Stack direction="row" spacing={1}>
+              <Button variant="outlined" startIcon={<AddIcon />} onClick={addSection}>Add new field</Button>
+              <Button variant="contained" color="warning" onClick={submit}>
+                Done
+              </Button>
+            </Stack>
+          </Grid>
+        </Grid>
+      </Paper>
     </Box>
   );
-};
-
-export default ChatWindow;
+}

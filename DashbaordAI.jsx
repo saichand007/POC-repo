@@ -8,7 +8,7 @@ import { MaterialReactTable, useMaterialReactTable } from 'material-react-table'
 
 import {
   AutoAwesome, CheckCircleOutline, CancelOutlined, RemoveRedEye, 
-  Search, KeyboardArrowDown, KeyboardArrowRight, FilterAltOutlined,
+  Search, KeyboardArrowDown, KeyboardArrowRight, AccountTreeOutlined, // <-- Added AccountTreeOutlined
   Storage, WarningAmber, AccessTime, CrisisAlert, PublicOutlined,
   ThumbUpAltOutlined, ThumbDownAltOutlined, DescriptionOutlined, InfoOutlined,
   ShowChart, AccountBalance, CategoryOutlined, InsertDriveFileOutlined,
@@ -104,13 +104,11 @@ const AISecurityDashboard = () => {
   const [leftSidebarSearchQuery, setLeftSidebarSearchQuery] = useState('');
   const [rightSubcatSearchQuery, setRightSubcatSearchQuery] = useState(''); 
   
-  // Row Detail Modal State
   const [isRowModalOpen, setIsRowModalOpen] = useState(false);
   const [selectedRowData, setSelectedRowData] = useState(null);
 
-  // Bulk Action Confirmation Modal State
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, action: null, isAll: false, count: 0 });
-  const [bulkActionNotes, setBulkActionNotes] = useState(''); // State for user input notes
+  const [bulkActionNotes, setBulkActionNotes] = useState(''); 
 
   const filteredSidebarData = useMemo(() => {
     if (!leftSidebarSearchQuery.trim()) return SIDEBAR_DATA;
@@ -141,19 +139,17 @@ const AISecurityDashboard = () => {
   
   const handleSubcategoryClick = (cat, sub) => setSelectedNode({ type: 'subcategory', data: sub, parent: cat });
   
-  // Handlers for Row Detail Modal
   const handleOpenRowModal = (rowData) => { setSelectedRowData(rowData); setIsRowModalOpen(true); };
   const handleCloseRowModal = () => { setIsRowModalOpen(false); setSelectedRowData(null); };
   const handleRowAction = (actionType) => { console.log(`${actionType} action taken on:`, selectedRowData?.id); handleCloseRowModal(); };
 
-  // Handlers for Confirmation Modal
   const handleOpenConfirmModal = (action, isAll, pendingCount) => {
     const count = isAll ? pendingCount : table.getSelectedRowModel().rows.length;
     setConfirmModal({ isOpen: true, action, isAll, count });
   };
   const handleCloseConfirmModal = () => {
     setConfirmModal({ isOpen: false, action: null, isAll: false, count: 0 });
-    setBulkActionNotes(''); // Clear notes when modal closes
+    setBulkActionNotes(''); 
   };
   const handleExecuteBulkAction = () => {
     console.log(`Executed ${confirmModal.action} on ${confirmModal.count} items (isAll: ${confirmModal.isAll}). Notes: ${bulkActionNotes}`);
@@ -214,36 +210,66 @@ const AISecurityDashboard = () => {
     const displayedSubCategories = cat.subCategories.filter(sub => sub.name.toLowerCase().includes(rightSubcatSearchQuery.toLowerCase()));
 
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        
+        {/* ENHANCED CATEGORY SUMMARY CARD */}
         <Paper variant="outlined" sx={{ p: 3, borderRadius: 3, borderColor: '#e2e8f0', bgcolor: '#ffffff', display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
             <Stack direction="row" alignItems="center" spacing={2}>
-              <Box sx={{ p: 1.5, bgcolor: '#eff6ff', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{React.cloneElement(cat.icon, { sx: { color: '#3b82f6', fontSize: 32 } })}</Box>
+              <Box sx={{ p: 1.5, bgcolor: '#eff6ff', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {React.cloneElement(cat.icon, { sx: { color: '#3b82f6', fontSize: 32 } })}
+              </Box>
               <Box>
-                <Typography variant="h5" fontWeight="800" color="#0f172a">{cat.name}</Typography>
-                <Typography variant="body2" color="text.secondary" fontWeight="500" sx={{ mt: 0.5 }}>{cat.subCategories.length} subcategories • {cat.stats.total} total errors</Typography>
+                <Stack direction="row" alignItems="center" spacing={1.5}>
+                  <Typography variant="h5" fontWeight="800" color="#0f172a">{cat.name}</Typography>
+                  <Chip label={`${cat.level.toUpperCase()} PRIORITY`} size="small" sx={{ bgcolor: cat.level === 'critical' ? '#fecaca' : '#ffedd5', color: cat.level === 'critical' ? '#991b1b' : '#c2410c', fontWeight: 800, borderRadius: 1.5 }} />
+                </Stack>
+                <Typography variant="body2" color="text.secondary" fontWeight="500" sx={{ mt: 0.5 }}>
+                  {cat.subCategories.length} subcategories • {cat.stats.total} total errors
+                </Typography>
               </Box>
             </Stack>
-            <Chip label={`${cat.level.toUpperCase()} PRIORITY`} sx={{ bgcolor: cat.level === 'critical' ? '#fecaca' : '#ffedd5', color: cat.level === 'critical' ? '#991b1b' : '#c2410c', fontWeight: 800, borderRadius: 2, px: 1 }} />
+            
+            {/* Category Level Bulk Actions */}
+            <Stack direction="row" spacing={1.5}>
+              <Button variant="contained" onClick={() => handleOpenConfirmModal('approve', true, cat.stats.pending)} startIcon={<ThumbUpAltOutlined />} sx={{ bgcolor: '#22c55e', '&:hover': { bgcolor: '#16a34a' }, textTransform: 'none', fontWeight: 600, boxShadow: 'none', borderRadius: 2 }}>
+                Approve All ({cat.stats.pending})
+              </Button>
+              <Button variant="contained" onClick={() => handleOpenConfirmModal('reject', true, cat.stats.pending)} startIcon={<ThumbDownAltOutlined />} sx={{ bgcolor: '#ef4444', '&:hover': { bgcolor: '#dc2626' }, textTransform: 'none', fontWeight: 600, boxShadow: 'none', borderRadius: 2 }}>
+                Reject All
+              </Button>
+            </Stack>
           </Box>
+          
           <Divider />
+          
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={3}><Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: '#fefce8', borderColor: '#fef08a' }}><Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}><AccessTime sx={{ color: '#ca8a04', fontSize: 20 }} /><Typography variant="body2" fontWeight="700" color="#ca8a04">Pending</Typography></Stack><Typography variant="h3" fontWeight="800" color="#ca8a04">{cat.stats.pending}</Typography></Paper></Grid>
             <Grid item xs={12} sm={6} md={3}><Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: '#f0fdf4', borderColor: '#bbf7d0' }}><Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}><CheckCircleOutline sx={{ color: '#16a34a', fontSize: 20 }} /><Typography variant="body2" fontWeight="700" color="#16a34a">Approved</Typography></Stack><Typography variant="h3" fontWeight="800" color="#16a34a">{cat.stats.approved}</Typography></Paper></Grid>
             <Grid item xs={12} sm={6} md={3}><Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: '#fef2f2', borderColor: '#fecaca' }}><Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}><CrisisAlert sx={{ color: '#dc2626', fontSize: 20 }} /><Typography variant="body2" fontWeight="700" color="#dc2626">Critical/High</Typography></Stack><Typography variant="h3" fontWeight="800" color="#dc2626">{cat.stats.critical}</Typography></Paper></Grid>
             <Grid item xs={12} sm={6} md={3}><Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: '#faf5ff', borderColor: '#e9d5ff' }}><Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}><AutoAwesome sx={{ color: '#9333ea', fontSize: 20 }} /><Typography variant="body2" fontWeight="700" color="#9333ea">Avg Confidence</Typography></Stack><Typography variant="h3" fontWeight="800" color="#9333ea">{cat.stats.conf}%</Typography></Paper></Grid>
           </Grid>
-          <Box sx={{ display: 'flex', gap: 2, flexDirection: 'row', width: '100%', flexWrap: 'wrap' }}>
-            <Paper elevation={0} sx={{ flex: '1 1 300px', p: 2.5, bgcolor: '#eff6ff', border: '1px solid #bfdbfe', borderLeft: '4px solid #3b82f6', borderRadius: 2, display: 'flex', flexDirection: 'column' }}>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}><AutoAwesome sx={{ color: '#1e40af', fontSize: 20 }} /><Typography variant="subtitle2" fontWeight="700" color="#1e40af">Category AI Summary</Typography></Stack>
-              <Typography variant="body2" color="#1e3a8a" sx={{ lineHeight: 1.6, flexGrow: 1 }}>{cat.analysis}</Typography>
-              <AISourcesDisplay sources={cat.sources} />
-            </Paper>
-            <Paper elevation={0} sx={{ flex: '1 1 300px', p: 2.5, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '4px solid #22c55e', borderRadius: 2, display: 'flex', flexDirection: 'column' }}>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}><CheckCircleOutline sx={{ color: '#166534', fontSize: 20 }} /><Typography variant="subtitle2" fontWeight="700" color="#166534">Global Recommendation</Typography></Stack>
-              <Typography variant="body2" color="#14532d" sx={{ lineHeight: 1.6, mb: 2, flexGrow: 1 }}>{cat.recommendation}</Typography>
-              <Stack direction="row" alignItems="center" spacing={2}><LinearProgress variant="determinate" value={cat.stats.conf} sx={{ flexGrow: 1, height: 8, borderRadius: 4, bgcolor: '#bbf7d0', '& .MuiLinearProgress-bar': { bgcolor: '#22c55e' } }} /><Typography variant="caption" fontWeight="700" color="#166534">{cat.stats.conf}% confidence</Typography></Stack>
-            </Paper>
+          
+          <Box sx={{ border: '1px solid #bfdbfe', borderRadius: 2, overflow: 'hidden' }}>
+            <Box sx={{ bgcolor: '#eff6ff', p: 1.5, borderBottom: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', gap: 1 }}>
+               <AutoAwesome sx={{ color: '#2563eb', fontSize: 20 }} />
+               <Typography variant="subtitle2" fontWeight="800" color="#1e40af">Global AI Insights & Resolution</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, bgcolor: '#fafafa' }}>
+               <Box sx={{ flex: 1, p: 2.5, borderRight: { md: '1px solid #e2e8f0' }, borderBottom: { xs: '1px solid #e2e8f0', md: 'none' } }}>
+                  <Typography variant="caption" fontWeight="700" color="text.secondary" sx={{ display: 'block', mb: 1 }}>ROOT CAUSE ANALYSIS</Typography>
+                  <Typography variant="body2" color="#334155" sx={{ lineHeight: 1.6 }}>{cat.analysis}</Typography>
+                  <AISourcesDisplay sources={cat.sources} />
+               </Box>
+               <Box sx={{ flex: 1, p: 2.5, bgcolor: '#f0fdf4' }}>
+                  <Typography variant="caption" fontWeight="700" color="#166534" sx={{ display: 'block', mb: 1 }}>RECOMMENDED ACTION</Typography>
+                  <Typography variant="body2" color="#14532d" sx={{ lineHeight: 1.6, mb: 2 }}>{cat.recommendation}</Typography>
+                  <Stack direction="row" alignItems="center" spacing={2}>
+                    <LinearProgress variant="determinate" value={cat.stats.conf} sx={{ flexGrow: 1, height: 6, borderRadius: 3, bgcolor: '#bbf7d0', '& .MuiLinearProgress-bar': { bgcolor: '#22c55e' } }} />
+                    <Typography variant="caption" fontWeight="700" color="#166534">{cat.stats.conf}% confidence</Typography>
+                  </Stack>
+               </Box>
+            </Box>
           </Box>
         </Paper>
 
@@ -262,7 +288,7 @@ const AISecurityDashboard = () => {
                       <Typography variant="body2" fontWeight="600" color="text.secondary">{sub.total} total errors</Typography>
                       <Chip label={`${sub.pending} pending`} size="small" icon={<AccessTime sx={{ fontSize: '14px !important' }}/>} sx={{ bgcolor: '#fefce8', color: '#ca8a04', fontWeight: 600, border: '1px solid #fef08a' }} />
                       {sub.critical > 0 && <Chip label={`${sub.critical} critical`} size="small" icon={<CrisisAlert sx={{ fontSize: '14px !important' }}/>} sx={{ bgcolor: '#fef2f2', color: '#dc2626', fontWeight: 600, border: '1px solid #fecaca' }} /> }
-                      <Chip label={`${sub.conf}% confidence`} size="small" icon={<AutoAwesome sx={{ fontSize: '14px !important' }}/>} sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontWeight: 600, border: '1px solid #bfdbfe' }} />
+                      <Chip label={`${sub.conf}% conf`} size="small" icon={<AutoAwesome sx={{ fontSize: '14px !important' }}/>} sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontWeight: 600, border: '1px solid #bfdbfe' }} />
                     </Stack>
                   </Box>
                   <Button variant="contained" onClick={() => handleSubcategoryClick(cat, sub)} startIcon={<RemoveRedEye />} sx={{ bgcolor: '#3b82f6', textTransform: 'none', fontWeight: 600, boxShadow: 'none', borderRadius: 1.5 }}>View Details</Button>
@@ -297,15 +323,15 @@ const AISecurityDashboard = () => {
             <Stack direction="row" spacing={1.5} sx={{ mt: 1.5 }} alignItems="center">
               <Typography variant="body2" fontWeight="600" color="text.secondary">{sub.total} total errors</Typography>
               <Tooltip title="Pending Review" arrow placement="top">
-                <Chip label={sub.pending} size="small" icon={<AccessTime sx={{ fontSize: '14px !important' }}/>} sx={{ bgcolor: '#fefce8', color: '#ca8a04', fontWeight: 600, border: '1px solid #fef08a' }} />
+                <Chip label={`${sub.pending} pending`} size="small" icon={<AccessTime sx={{ fontSize: '14px !important' }}/>} sx={{ bgcolor: '#fefce8', color: '#ca8a04', fontWeight: 600, border: '1px solid #fef08a' }} />
               </Tooltip>
               {sub.critical > 0 && (
                 <Tooltip title="Critical Errors" arrow placement="top">
-                  <Chip label={sub.critical} size="small" icon={<CrisisAlert sx={{ fontSize: '14px !important' }}/>} sx={{ bgcolor: '#fef2f2', color: '#dc2626', fontWeight: 600, border: '1px solid #fecaca' }} />
+                  <Chip label={`${sub.critical} critical`} size="small" icon={<CrisisAlert sx={{ fontSize: '14px !important' }}/>} sx={{ bgcolor: '#fef2f2', color: '#dc2626', fontWeight: 600, border: '1px solid #fecaca' }} />
                 </Tooltip>
               )}
               <Tooltip title="AI Confidence Score" arrow placement="top">
-                <Chip label={`${sub.conf}%`} size="small" icon={<AutoAwesome sx={{ fontSize: '14px !important' }}/>} sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontWeight: 600, border: '1px solid #bfdbfe' }} />
+                <Chip label={`${sub.conf}% conf`} size="small" icon={<AutoAwesome sx={{ fontSize: '14px !important' }}/>} sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontWeight: 600, border: '1px solid #bfdbfe' }} />
               </Tooltip>
             </Stack>
           </Box>
@@ -403,7 +429,7 @@ const AISecurityDashboard = () => {
 
         <Divider sx={{ mb: 2, borderColor: '#e2e8f0' }} />
 
-        {/* 5-CARD METRICS ROW - DYNAMIC WRAPPING */}
+        {/* 5-CARD METRICS ROW */}
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', width: '100%' }}>
           
           <Box sx={{ flex: '1 1 180px', p: 1.5, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column' }}>
@@ -489,14 +515,14 @@ const AISecurityDashboard = () => {
         </Box>
       </Paper>
 
-      {/* 2. DASHBOARD BODY (REMOVED FIXED HEIGHTS/SCROLLBARS FOR GLOBAL PAGE SCROLL) */}
+      {/* 2. DASHBOARD BODY */}
       <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start', flexWrap: { xs: 'wrap', lg: 'nowrap' } }}>
         
         {/* LEFT SIDEBAR NAVIGATION */}
         <Paper elevation={0} variant="outlined" sx={{ width: { xs: '100%', lg: 380 }, flexShrink: 0, display: 'flex', flexDirection: 'column', borderRadius: 3, borderColor: '#e2e8f0', bgcolor: '#ffffff' }}>
           <Box sx={{ p: 2, borderBottom: '1px solid #e2e8f0', bgcolor: '#f8fafc', position: 'sticky', top: 0, zIndex: 10 }}>
             <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
-              <FilterAltOutlined fontSize="small" sx={{ color: '#475569' }} />
+              <AccountTreeOutlined fontSize="small" sx={{ color: '#475569' }} />
               <Typography variant="subtitle1" fontWeight="800" color="#0f172a">Categories & Inv. Types</Typography>
             </Stack>
             <TextField fullWidth size="small" placeholder="Filter 500+ categories..." value={leftSidebarSearchQuery} onChange={(e) => setLeftSidebarSearchQuery(e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#ffffff' } }} />

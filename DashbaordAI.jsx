@@ -10,7 +10,7 @@ import {
   AutoAwesome, CheckCircleOutline, CancelOutlined, RemoveRedEye, 
   Search, KeyboardArrowDown, KeyboardArrowRight, FilterAltOutlined,
   Storage, WarningAmber, AccessTime, CrisisAlert, PublicOutlined,
-  ThumbUpAltOutlined, ThumbDownAltOutlined, InfoOutlined,
+  ThumbUpAltOutlined, ThumbDownAltOutlined, DescriptionOutlined, InfoOutlined,
   ShowChart, AccountBalance, CategoryOutlined, InsertDriveFileOutlined,
   AnalyticsOutlined, ErrorOutline, CloudDoneOutlined, TaskAltOutlined,
   RefreshOutlined, FileDownloadOutlined, AssignmentLateOutlined
@@ -103,8 +103,14 @@ const AISecurityDashboard = () => {
   const [selectedNode, setSelectedNode] = useState({ type: 'category', data: SIDEBAR_DATA[0] });
   const [leftSidebarSearchQuery, setLeftSidebarSearchQuery] = useState('');
   const [rightSubcatSearchQuery, setRightSubcatSearchQuery] = useState(''); 
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Row Detail Modal State
+  const [isRowModalOpen, setIsRowModalOpen] = useState(false);
   const [selectedRowData, setSelectedRowData] = useState(null);
+
+  // Bulk Action Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, action: null, isAll: false, count: 0 });
+  const [bulkActionNotes, setBulkActionNotes] = useState(''); // State for user input notes
 
   const filteredSidebarData = useMemo(() => {
     if (!leftSidebarSearchQuery.trim()) return SIDEBAR_DATA;
@@ -134,9 +140,26 @@ const AISecurityDashboard = () => {
   };
   
   const handleSubcategoryClick = (cat, sub) => setSelectedNode({ type: 'subcategory', data: sub, parent: cat });
-  const handleOpenRowModal = (rowData) => { setSelectedRowData(rowData); setIsModalOpen(true); };
-  const handleCloseRowModal = () => { setIsModalOpen(false); setSelectedRowData(null); };
+  
+  // Handlers for Row Detail Modal
+  const handleOpenRowModal = (rowData) => { setSelectedRowData(rowData); setIsRowModalOpen(true); };
+  const handleCloseRowModal = () => { setIsRowModalOpen(false); setSelectedRowData(null); };
   const handleRowAction = (actionType) => { console.log(`${actionType} action taken on:`, selectedRowData?.id); handleCloseRowModal(); };
+
+  // Handlers for Confirmation Modal
+  const handleOpenConfirmModal = (action, isAll, pendingCount) => {
+    const count = isAll ? pendingCount : table.getSelectedRowModel().rows.length;
+    setConfirmModal({ isOpen: true, action, isAll, count });
+  };
+  const handleCloseConfirmModal = () => {
+    setConfirmModal({ isOpen: false, action: null, isAll: false, count: 0 });
+    setBulkActionNotes(''); // Clear notes when modal closes
+  };
+  const handleExecuteBulkAction = () => {
+    console.log(`Executed ${confirmModal.action} on ${confirmModal.count} items (isAll: ${confirmModal.isAll}). Notes: ${bulkActionNotes}`);
+    table.resetRowSelection();
+    handleCloseConfirmModal();
+  };
 
   const columns = useMemo(() => [
     { accessorKey: 'id', header: 'SECURITY ID', size: 140 },
@@ -169,25 +192,22 @@ const AISecurityDashboard = () => {
     columns, data: tableDataFiltered, enableRowSelection: true, enableColumnActions: false, 
     enablePagination: true, enableBottomToolbar: true, enableTopToolbar: false,
     initialState: { pagination: { pageSize: 5, pageIndex: 0 } },
-    muiTableContainerProps: { sx: { maxHeight: '350px', minHeight: '300px', overflowY: 'auto' } },
     muiTablePaperProps: { elevation: 0 }, muiTableHeadCellProps: { sx: { color: '#64748b', fontSize: '12px', fontWeight: 700, bgcolor: '#f8fafc' } },
     renderRowActions: ({ row }) => (
       row.original.status === 'pending' ? (
-        <Stack direction="row" spacing={0.5}>
+        <Stack direction="row" justifyContent="center">
           <Tooltip title="View Details" arrow>
-            <IconButton size="small" onClick={() => handleOpenRowModal(row.original)} sx={{ bgcolor: '#3b82f6', color: 'white', '&:hover': { bgcolor: '#2563eb' }, width: 28, height: 28, borderRadius: 1 }}><RemoveRedEye sx={{ fontSize: 16 }} /></IconButton>
-          </Tooltip>
-          <Tooltip title="Approve Recommendation" arrow>
-            <IconButton size="small" onClick={() => console.log('Approved', row.original.id)} sx={{ bgcolor: '#22c55e', color: 'white', '&:hover': { bgcolor: '#16a34a' }, width: 28, height: 28, borderRadius: 1 }}><ThumbUpAltOutlined sx={{ fontSize: 16 }} /></IconButton>
-          </Tooltip>
-          <Tooltip title="Reject Recommendation" arrow>
-            <IconButton size="small" onClick={() => console.log('Rejected', row.original.id)} sx={{ bgcolor: '#ef4444', color: 'white', '&:hover': { bgcolor: '#dc2626' }, width: 28, height: 28, borderRadius: 1 }}><ThumbDownAltOutlined sx={{ fontSize: 16 }} /></IconButton>
+            <IconButton size="small" onClick={() => handleOpenRowModal(row.original)} sx={{ bgcolor: '#3b82f6', color: 'white', '&:hover': { bgcolor: '#2563eb' }, width: 28, height: 28, borderRadius: 1 }}>
+              <RemoveRedEye sx={{ fontSize: 16 }} />
+            </IconButton>
           </Tooltip>
         </Stack>
       ) : null
     ),
-    enableRowActions: true, positionActionsColumn: 'last', displayColumnDefOptions: { 'mrt-row-actions': { header: 'ACTIONS', size: 120 } },
+    enableRowActions: true, positionActionsColumn: 'last', displayColumnDefOptions: { 'mrt-row-actions': { header: 'ACTION', size: 80, muiTableHeadCellProps: { align: 'center' } } },
   });
+
+  const selectedRowCount = table.getSelectedRowModel().rows.length;
 
   const renderCategoryDashboard = () => {
     const cat = selectedNode.data;
@@ -213,13 +233,13 @@ const AISecurityDashboard = () => {
             <Grid item xs={12} sm={6} md={3}><Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: '#fef2f2', borderColor: '#fecaca' }}><Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}><CrisisAlert sx={{ color: '#dc2626', fontSize: 20 }} /><Typography variant="body2" fontWeight="700" color="#dc2626">Critical/High</Typography></Stack><Typography variant="h3" fontWeight="800" color="#dc2626">{cat.stats.critical}</Typography></Paper></Grid>
             <Grid item xs={12} sm={6} md={3}><Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: '#faf5ff', borderColor: '#e9d5ff' }}><Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}><AutoAwesome sx={{ color: '#9333ea', fontSize: 20 }} /><Typography variant="body2" fontWeight="700" color="#9333ea">Avg Confidence</Typography></Stack><Typography variant="h3" fontWeight="800" color="#9333ea">{cat.stats.conf}%</Typography></Paper></Grid>
           </Grid>
-          <Box sx={{ display: 'flex', gap: 2, flexDirection: 'row', width: '100%' }}>
-            <Paper elevation={0} sx={{ flex: 1, p: 2.5, bgcolor: '#eff6ff', border: '1px solid #bfdbfe', borderLeft: '4px solid #3b82f6', borderRadius: 2, display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ display: 'flex', gap: 2, flexDirection: 'row', width: '100%', flexWrap: 'wrap' }}>
+            <Paper elevation={0} sx={{ flex: '1 1 300px', p: 2.5, bgcolor: '#eff6ff', border: '1px solid #bfdbfe', borderLeft: '4px solid #3b82f6', borderRadius: 2, display: 'flex', flexDirection: 'column' }}>
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}><AutoAwesome sx={{ color: '#1e40af', fontSize: 20 }} /><Typography variant="subtitle2" fontWeight="700" color="#1e40af">Category AI Summary</Typography></Stack>
               <Typography variant="body2" color="#1e3a8a" sx={{ lineHeight: 1.6, flexGrow: 1 }}>{cat.analysis}</Typography>
               <AISourcesDisplay sources={cat.sources} />
             </Paper>
-            <Paper elevation={0} sx={{ flex: 1, p: 2.5, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '4px solid #22c55e', borderRadius: 2, display: 'flex', flexDirection: 'column' }}>
+            <Paper elevation={0} sx={{ flex: '1 1 300px', p: 2.5, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '4px solid #22c55e', borderRadius: 2, display: 'flex', flexDirection: 'column' }}>
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}><CheckCircleOutline sx={{ color: '#166534', fontSize: 20 }} /><Typography variant="subtitle2" fontWeight="700" color="#166534">Global Recommendation</Typography></Stack>
               <Typography variant="body2" color="#14532d" sx={{ lineHeight: 1.6, mb: 2, flexGrow: 1 }}>{cat.recommendation}</Typography>
               <Stack direction="row" alignItems="center" spacing={2}><LinearProgress variant="determinate" value={cat.stats.conf} sx={{ flexGrow: 1, height: 8, borderRadius: 4, bgcolor: '#bbf7d0', '& .MuiLinearProgress-bar': { bgcolor: '#22c55e' } }} /><Typography variant="caption" fontWeight="700" color="#166534">{cat.stats.conf}% confidence</Typography></Stack>
@@ -240,29 +260,20 @@ const AISecurityDashboard = () => {
                     <Typography variant="h6" fontWeight="800" color="#0f172a">{sub.name}</Typography>
                     <Stack direction="row" spacing={1.5} sx={{ mt: 0.5 }} alignItems="center">
                       <Typography variant="body2" fontWeight="600" color="text.secondary">{sub.total} total errors</Typography>
-                      
-                      <Tooltip title="Pending Review" arrow placement="top">
-                        <Chip label={sub.pending} size="small" icon={<AccessTime sx={{ fontSize: '14px !important' }}/>} sx={{ bgcolor: '#fefce8', color: '#ca8a04', fontWeight: 600, border: '1px solid #fef08a' }} />
-                      </Tooltip>
-                      {sub.critical > 0 && (
-                        <Tooltip title="Critical Errors" arrow placement="top">
-                          <Chip label={sub.critical} size="small" icon={<CrisisAlert sx={{ fontSize: '14px !important' }}/>} sx={{ bgcolor: '#fef2f2', color: '#dc2626', fontWeight: 600, border: '1px solid #fecaca' }} /> 
-                        </Tooltip>
-                      )}
-                      <Tooltip title="AI Confidence Score" arrow placement="top">
-                        <Chip label={`${sub.conf}%`} size="small" icon={<AutoAwesome sx={{ fontSize: '14px !important' }}/>} sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontWeight: 600, border: '1px solid #bfdbfe' }} />
-                      </Tooltip>
+                      <Chip label={`${sub.pending} pending`} size="small" icon={<AccessTime sx={{ fontSize: '14px !important' }}/>} sx={{ bgcolor: '#fefce8', color: '#ca8a04', fontWeight: 600, border: '1px solid #fef08a' }} />
+                      {sub.critical > 0 && <Chip label={`${sub.critical} critical`} size="small" icon={<CrisisAlert sx={{ fontSize: '14px !important' }}/>} sx={{ bgcolor: '#fef2f2', color: '#dc2626', fontWeight: 600, border: '1px solid #fecaca' }} /> }
+                      <Chip label={`${sub.conf}% confidence`} size="small" icon={<AutoAwesome sx={{ fontSize: '14px !important' }}/>} sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontWeight: 600, border: '1px solid #bfdbfe' }} />
                     </Stack>
                   </Box>
                   <Button variant="contained" onClick={() => handleSubcategoryClick(cat, sub)} startIcon={<RemoveRedEye />} sx={{ bgcolor: '#3b82f6', textTransform: 'none', fontWeight: 600, boxShadow: 'none', borderRadius: 1.5 }}>View Details</Button>
                 </Stack>
-                <Box sx={{ display: 'flex', gap: 2, flexDirection: 'row', width: '100%' }}>
-                  <Paper elevation={0} sx={{ flex: 1, p: 2, bgcolor: '#eff6ff', border: '1px solid #bfdbfe', borderLeft: '4px solid #3b82f6', borderRadius: 2, display: 'flex', flexDirection: 'column' }}>
+                <Box sx={{ display: 'flex', gap: 2, flexDirection: 'row', width: '100%', flexWrap: 'wrap' }}>
+                  <Paper elevation={0} sx={{ flex: '1 1 300px', p: 2, bgcolor: '#eff6ff', border: '1px solid #bfdbfe', borderLeft: '4px solid #3b82f6', borderRadius: 2, display: 'flex', flexDirection: 'column' }}>
                     <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}><AutoAwesome sx={{ color: '#1e40af', fontSize: 18 }} /><Typography variant="subtitle2" fontWeight="700" color="#1e40af">AI Analysis</Typography></Stack>
                     <Typography variant="body2" color="#1e3a8a" sx={{ lineHeight: 1.5, flexGrow: 1 }}>{sub.analysis}</Typography>
                     <AISourcesDisplay sources={sub.sources} />
                   </Paper>
-                  <Paper elevation={0} sx={{ flex: 1, p: 2, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '4px solid #22c55e', borderRadius: 2, display: 'flex', flexDirection: 'column' }}>
+                  <Paper elevation={0} sx={{ flex: '1 1 300px', p: 2, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '4px solid #22c55e', borderRadius: 2, display: 'flex', flexDirection: 'column' }}>
                     <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}><CheckCircleOutline sx={{ color: '#166534', fontSize: 18 }} /><Typography variant="subtitle2" fontWeight="700" color="#166534">Recommended Action</Typography></Stack>
                     <Typography variant="body2" color="#14532d" sx={{ lineHeight: 1.5 }}>{sub.recommendation}</Typography>
                   </Paper>
@@ -280,7 +291,7 @@ const AISecurityDashboard = () => {
     const parent = selectedNode.parent;
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ flexWrap: 'wrap', gap: 2 }}>
           <Box>
             <Stack direction="row" alignItems="center" spacing={1.5}><Typography variant="h5" fontWeight="800" color="#0f172a">{sub.name}</Typography><Typography variant="body1" color="text.secondary" fontWeight="500">{parent.name}</Typography></Stack>
             <Stack direction="row" spacing={1.5} sx={{ mt: 1.5 }} alignItems="center">
@@ -298,20 +309,16 @@ const AISecurityDashboard = () => {
               </Tooltip>
             </Stack>
           </Box>
-          <Stack direction="row" spacing={1.5}>
-            <Button variant="contained" startIcon={<ThumbUpAltOutlined />} sx={{ bgcolor: '#22c55e', '&:hover': { bgcolor: '#16a34a' }, textTransform: 'none', fontWeight: 600, px: 3, boxShadow: 'none', borderRadius: 2 }}>Approve All ({sub.pending})</Button>
-            <Button variant="contained" startIcon={<ThumbDownAltOutlined />} sx={{ bgcolor: '#ef4444', '&:hover': { bgcolor: '#dc2626' }, textTransform: 'none', fontWeight: 600, px: 3, boxShadow: 'none', borderRadius: 2 }}>Reject All</Button>
-          </Stack>
         </Stack>
 
-        <Box sx={{ display: 'flex', gap: 2, flexDirection: 'row', width: '100%', mb: 1 }}>
-          <Paper elevation={0} sx={{ flex: 1, p: 2.5, bgcolor: '#eff6ff', border: '1px solid #bfdbfe', borderLeft: '4px solid #3b82f6', borderRadius: 2, display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ display: 'flex', gap: 2, flexDirection: 'row', width: '100%', flexWrap: 'wrap', mb: 1 }}>
+          <Paper elevation={0} sx={{ flex: '1 1 300px', p: 2.5, bgcolor: '#eff6ff', border: '1px solid #bfdbfe', borderLeft: '4px solid #3b82f6', borderRadius: 2, display: 'flex', flexDirection: 'column' }}>
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}><AutoAwesome sx={{ color: '#1e40af', fontSize: 20 }} /><Typography variant="subtitle2" fontWeight="700" color="#1e40af">AI Analysis Summary</Typography></Stack>
             <Typography variant="body2" color="#1e3a8a" sx={{ lineHeight: 1.6, mb: 2, flexGrow: 1 }}>{sub.analysis}</Typography>
             <AISourcesDisplay sources={sub.sources} />
           </Paper>
 
-          <Paper elevation={0} sx={{ flex: 1, p: 2.5, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '4px solid #22c55e', borderRadius: 2, display: 'flex', flexDirection: 'column' }}>
+          <Paper elevation={0} sx={{ flex: '1 1 300px', p: 2.5, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '4px solid #22c55e', borderRadius: 2, display: 'flex', flexDirection: 'column' }}>
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}><CheckCircleOutline sx={{ color: '#166534', fontSize: 20 }} /><Typography variant="subtitle2" fontWeight="700" color="#166534">Recommended Action</Typography></Stack>
             <Typography variant="body2" color="#14532d" sx={{ lineHeight: 1.6, mb: 3, flexGrow: 1 }}>{sub.recommendation}</Typography>
             <Stack direction="row" alignItems="center" spacing={2}><LinearProgress variant="determinate" value={sub.conf} sx={{ flexGrow: 1, height: 8, borderRadius: 4, bgcolor: '#bbf7d0', '& .MuiLinearProgress-bar': { bgcolor: '#22c55e' } }} /><Typography variant="caption" fontWeight="700" color="#166534">{sub.conf}% confidence</Typography></Stack>
@@ -319,10 +326,28 @@ const AISecurityDashboard = () => {
         </Box>
 
         <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, overflow: 'hidden' }}>
-          <Box sx={{ p: 2, borderBottom: '1px solid #e2e8f0', display: 'flex', gap: 2, bgcolor: '#ffffff' }}>
-            <TextField size="small" placeholder={`Search ${sub.name.toLowerCase()} securities...`} sx={{ width: 320 }} InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }} />
-            <Select size="small" value="All Status" sx={{ width: 140, color: 'text.secondary', fontSize: '14px' }}><MenuItem value="All Status">All Status</MenuItem></Select>
-            <Select size="small" value="All Levels" sx={{ width: 140, color: 'text.secondary', fontSize: '14px' }}><MenuItem value="All Levels">All Levels</MenuItem></Select>
+          {/* CUSTOM TABLE TOOLBAR WITH DYNAMIC ACTIONS */}
+          <Box sx={{ p: 2, borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: '#ffffff', flexWrap: 'wrap', gap: 2 }}>
+            <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', gap: 2 }}>
+              <TextField size="small" placeholder={`Search ${sub.name.toLowerCase()} securities...`} sx={{ width: 320 }} InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }} />
+              <Select size="small" value="All Status" sx={{ width: 140, color: 'text.secondary', fontSize: '14px' }}><MenuItem value="All Status">All Status</MenuItem></Select>
+              <Select size="small" value="All Levels" sx={{ width: 140, color: 'text.secondary', fontSize: '14px' }}><MenuItem value="All Levels">All Levels</MenuItem></Select>
+            </Stack>
+            
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              {selectedRowCount > 0 ? (
+                <>
+                  <Typography variant="body2" fontWeight="700" color="#475569">{selectedRowCount} selected</Typography>
+                  <Button variant="contained" onClick={() => handleOpenConfirmModal('approve', false, 0)} startIcon={<ThumbUpAltOutlined />} sx={{ bgcolor: '#22c55e', '&:hover': { bgcolor: '#16a34a' }, textTransform: 'none', fontWeight: 600, boxShadow: 'none', borderRadius: 2 }}>Approve</Button>
+                  <Button variant="contained" onClick={() => handleOpenConfirmModal('reject', false, 0)} startIcon={<ThumbDownAltOutlined />} sx={{ bgcolor: '#ef4444', '&:hover': { bgcolor: '#dc2626' }, textTransform: 'none', fontWeight: 600, boxShadow: 'none', borderRadius: 2 }}>Reject</Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="contained" onClick={() => handleOpenConfirmModal('approve', true, sub.pending)} startIcon={<ThumbUpAltOutlined />} sx={{ bgcolor: '#22c55e', '&:hover': { bgcolor: '#16a34a' }, textTransform: 'none', fontWeight: 600, boxShadow: 'none', borderRadius: 2 }}>Approve All ({sub.pending})</Button>
+                  <Button variant="contained" onClick={() => handleOpenConfirmModal('reject', true, sub.pending)} startIcon={<ThumbDownAltOutlined />} sx={{ bgcolor: '#ef4444', '&:hover': { bgcolor: '#dc2626' }, textTransform: 'none', fontWeight: 600, boxShadow: 'none', borderRadius: 2 }}>Reject All</Button>
+                </>
+              )}
+            </Stack>
           </Box>
           <MaterialReactTable table={table} />
         </Paper>
@@ -331,22 +356,22 @@ const AISecurityDashboard = () => {
   };
 
   return (
-    <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', p: 3, fontFamily: 'system-ui' }}>
+    <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', p: 2, fontFamily: 'system-ui' }}>
       
-      {/* 1. UNIFIED TOP DASHBOARD CONTAINER */}
+      {/* 1. DYNAMIC TOP DASHBOARD CONTAINER */}
       <Paper 
         elevation={0} 
         sx={{ 
-          p: 3, mb: 4, borderRadius: 3, 
+          p: 2, mb: 3, borderRadius: 3, 
           bgcolor: '#ffffff', 
           border: '1px solid #e2e8f0', 
           borderTop: '4px solid #2563eb',
           boxShadow: '0 4px 20px rgba(0,0,0,0.03)' 
         }}
       >
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2, flexWrap: 'wrap', gap: 2 }}>
           <Stack direction="row" spacing={2} alignItems="center">
-            <Avatar variant="rounded" sx={{ bgcolor: '#eff6ff', color: '#2563eb', width: 48, height: 48 }}>
+            <Avatar variant="rounded" sx={{ bgcolor: '#eff6ff', color: '#2563eb', width: 40, height: 40 }}>
               <InsertDriveFileOutlined />
             </Avatar>
             <Box>
@@ -358,7 +383,7 @@ const AISecurityDashboard = () => {
           <Stack direction="row" spacing={3} alignItems="center">
             <Box sx={{ textAlign: 'right' }}>
               <Chip icon={<CloudDoneOutlined />} label={FILE_INFO.status} color="success" size="small" sx={{ fontWeight: 700, mb: 0.5 }} />
-              <Typography variant="body2" color="text.secondary" fontWeight="600">Total Analyzed Records: {FILE_INFO.totalRecords.toLocaleString()}</Typography>
+              <Typography variant="body2" color="text.secondary" fontWeight="600">Total Analyzed: {FILE_INFO.totalRecords.toLocaleString()}</Typography>
             </Box>
             <Divider orientation="vertical" flexItem sx={{ height: 40, borderColor: '#e2e8f0' }} />
             <Stack direction="row" spacing={1}>
@@ -376,13 +401,13 @@ const AISecurityDashboard = () => {
           </Stack>
         </Stack>
 
-        <Divider sx={{ mb: 3, borderColor: '#e2e8f0' }} />
+        <Divider sx={{ mb: 2, borderColor: '#e2e8f0' }} />
 
-        {/* 5-CARD METRICS ROW */}
-        <Box sx={{ display: 'flex', gap: 2, flexDirection: 'row', width: '100%' }}>
+        {/* 5-CARD METRICS ROW - DYNAMIC WRAPPING */}
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', width: '100%' }}>
           
-          <Box sx={{ flex: 1, minWidth: 0, p: 2, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="caption" fontWeight="800" color="text.secondary" sx={{ mb: 1.5 }}>WORKFLOW STATUS</Typography>
+          <Box sx={{ flex: '1 1 180px', p: 1.5, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="caption" fontWeight="800" color="text.secondary" sx={{ mb: 1 }}>WORKFLOW STATUS</Typography>
             <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
               <Stack direction="row" justifyContent="space-between" alignItems="center">
                 <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -407,8 +432,8 @@ const AISecurityDashboard = () => {
             </Box>
           </Box>
 
-          <Box sx={{ flex: 1, minWidth: 0, p: 2, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="caption" fontWeight="800" color="text.secondary" sx={{ mb: 1.5 }}>ERROR SEVERITY</Typography>
+          <Box sx={{ flex: '1 1 180px', p: 1.5, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="caption" fontWeight="800" color="text.secondary" sx={{ mb: 1 }}>ERROR SEVERITY</Typography>
             <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
               <Stack direction="row" justifyContent="space-between" alignItems="center">
                 <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><ErrorOutline sx={{ fontSize: 16, color: '#dc2626' }}/> Critical</Typography>
@@ -427,35 +452,35 @@ const AISecurityDashboard = () => {
             </Box>
           </Box>
 
-          <Box sx={{ flex: 1, minWidth: 0, p: 2, borderRadius: 2, bgcolor: '#fffbeb', border: '1px solid #fef08a', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <Box sx={{ flex: '1 1 180px', p: 1.5, borderRadius: 2, bgcolor: '#fffbeb', border: '1px solid #fef08a', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <Stack direction="row" alignItems="center" spacing={1}>
               <AssignmentLateOutlined sx={{ color: '#d97706', fontSize: 18 }} />
               <Typography variant="caption" fontWeight="800" color="#d97706">NEEDS REVIEW</Typography>
             </Stack>
             <Box sx={{ mt: 1, flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <Typography variant="h3" fontWeight="800" color="#b45309">367</Typography>
+                <Typography variant="h4" fontWeight="800" color="#b45309">367</Typography>
                 <Typography variant="caption" color="#d97706" fontWeight="700" sx={{ mt: 0.5 }}>
                    <span style={{color: '#dc2626'}}>162 critical</span> • 254 high priority
                 </Typography>
             </Box>
           </Box>
 
-          <Box sx={{ flex: 1, minWidth: 0, p: 2.5, borderRadius: 2, bgcolor: '#eff6ff', border: '1px solid #bfdbfe', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <Box sx={{ flex: '1 1 180px', p: 1.5, borderRadius: 2, bgcolor: '#eff6ff', border: '1px solid #bfdbfe', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <Typography variant="caption" fontWeight="800" color="#1e40af">RESOLUTION RATE</Typography>
             <Box sx={{ mt: 1, flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <Typography variant="h3" fontWeight="800" color="#1e3a8a">{FILE_INFO.resolutionRate}%</Typography>
+                <Typography variant="h4" fontWeight="800" color="#1e3a8a">{FILE_INFO.resolutionRate}%</Typography>
                 <Typography variant="body2" color="#3b82f6" fontWeight="700" sx={{ mt: 0.5 }}>{FILE_INFO.resolvedRecords} of {FILE_INFO.errorRecords} resolved</Typography>
                 <LinearProgress variant="determinate" value={FILE_INFO.resolutionRate} sx={{ mt: 2, height: 6, borderRadius: 3, bgcolor: '#dbeafe', '& .MuiLinearProgress-bar': { bgcolor: '#2563eb' } }} />
             </Box>
           </Box>
 
-          <Box sx={{ flex: 1, minWidth: 0, p: 2.5, borderRadius: 2, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <Box sx={{ flex: '1 1 180px', p: 1.5, borderRadius: 2, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <Stack direction="row" alignItems="center" spacing={1}>
               <AutoAwesome sx={{ color: '#166534', fontSize: 18 }} />
               <Typography variant="caption" fontWeight="800" color="#166534">AI CONFIDENCE</Typography>
             </Stack>
             <Box sx={{ mt: 1, flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <Typography variant="h3" fontWeight="800" color="#14532d">{FILE_INFO.aiConfidence}%</Typography>
+                <Typography variant="h4" fontWeight="800" color="#14532d">{FILE_INFO.aiConfidence}%</Typography>
                 <Typography variant="body2" color="#16a34a" fontWeight="700" sx={{ mt: 0.5 }}>{FILE_INFO.readyForAutoApprove} ready for auto-approve</Typography>
                 <LinearProgress variant="determinate" value={FILE_INFO.aiConfidence} sx={{ mt: 2, height: 6, borderRadius: 3, bgcolor: '#dcfce7', '& .MuiLinearProgress-bar': { bgcolor: '#16a34a' } }} />
             </Box>
@@ -464,12 +489,12 @@ const AISecurityDashboard = () => {
         </Box>
       </Paper>
 
-      {/* 2. DASHBOARD BODY */}
-      <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
+      {/* 2. DASHBOARD BODY (REMOVED FIXED HEIGHTS/SCROLLBARS FOR GLOBAL PAGE SCROLL) */}
+      <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start', flexWrap: { xs: 'wrap', lg: 'nowrap' } }}>
         
         {/* LEFT SIDEBAR NAVIGATION */}
-        <Paper elevation={0} variant="outlined" sx={{ width: 380, flexShrink: 0, display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 160px)', borderRadius: 3, borderColor: '#e2e8f0', bgcolor: '#ffffff', overflow: 'hidden' }}>
-          <Box sx={{ p: 2.5, borderBottom: '1px solid #e2e8f0', bgcolor: '#f8fafc' }}>
+        <Paper elevation={0} variant="outlined" sx={{ width: { xs: '100%', lg: 380 }, flexShrink: 0, display: 'flex', flexDirection: 'column', borderRadius: 3, borderColor: '#e2e8f0', bgcolor: '#ffffff' }}>
+          <Box sx={{ p: 2, borderBottom: '1px solid #e2e8f0', bgcolor: '#f8fafc', position: 'sticky', top: 0, zIndex: 10 }}>
             <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
               <FilterAltOutlined fontSize="small" sx={{ color: '#475569' }} />
               <Typography variant="subtitle1" fontWeight="800" color="#0f172a">Categories & Inv. Types</Typography>
@@ -477,7 +502,7 @@ const AISecurityDashboard = () => {
             <TextField fullWidth size="small" placeholder="Filter 500+ categories..." value={leftSidebarSearchQuery} onChange={(e) => setLeftSidebarSearchQuery(e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#ffffff' } }} />
           </Box>
 
-          <Box sx={{ overflowY: 'auto', flexGrow: 1, p: 2, '&::-webkit-scrollbar': { width: '6px' }, '&::-webkit-scrollbar-thumb': { backgroundColor: '#cbd5e1', borderRadius: '4px' } }}>
+          <Box sx={{ p: 2 }}>
             {filteredSidebarData.length === 0 ? (
               <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mt: 4 }}>No results match your filter.</Typography>
             ) : (
@@ -518,10 +543,6 @@ const AISecurityDashboard = () => {
                                   <Typography variant="body2" fontWeight="700" color="#0f172a">{sub.name}</Typography>
                                   <Box sx={{ bgcolor: '#f1f5f9', color: '#475569', px: 1, py: 0.2, borderRadius: '12px', fontSize: '12px', fontWeight: 700 }}>{sub.total}</Box>
                                 </Stack>
-                                
-                                {/* ------------------------------------------------------------- */}
-                                {/* LEFT SIDEBAR SUBCATEGORY STATUS: ICONS + TOOLTIPS ONLY        */}
-                                {/* ------------------------------------------------------------- */}
                                 <Stack direction="row" spacing={1.5} alignItems="center">
                                   <Tooltip title="Pending Review" arrow placement="top">
                                     <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#d97706', fontWeight: 600 }}>
@@ -546,7 +567,6 @@ const AISecurityDashboard = () => {
                                     </Typography>
                                   </Tooltip>
                                 </Stack>
-
                               </Box>
                             </Box>
                           );
@@ -561,21 +581,21 @@ const AISecurityDashboard = () => {
         </Paper>
 
         {/* RIGHT SIDE ACTION CANVAS */}
-        <Paper elevation={0} variant="outlined" sx={{ flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 160px)', borderRadius: 3, borderColor: '#e2e8f0', bgcolor: '#ffffff', overflow: 'hidden' }}>
+        <Paper elevation={0} variant="outlined" sx={{ flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column', borderRadius: 3, borderColor: '#e2e8f0', bgcolor: '#ffffff' }}>
           <Box sx={{ p: 2.5, borderBottom: '1px solid #e2e8f0', bgcolor: '#f8fafc' }}>
             <Stack direction="row" alignItems="center" spacing={1}>
               <AnalyticsOutlined fontSize="small" sx={{ color: '#475569' }} />
               <Typography variant="subtitle1" fontWeight="800" color="#0f172a">Resolution Canvas</Typography>
             </Stack>
           </Box>
-          <Box sx={{ overflowY: 'auto', flexGrow: 1, p: 3, '&::-webkit-scrollbar': { width: '6px' }, '&::-webkit-scrollbar-thumb': { backgroundColor: '#cbd5e1', borderRadius: '4px' } }}>
+          <Box sx={{ p: 2.5 }}>
              {selectedNode.type === 'category' ? renderCategoryDashboard() : renderSubcategoryDashboard()}
           </Box>
         </Paper>
       </Box>
 
-      {/* ROW ACTION MODAL */}
-      <Dialog open={isModalOpen} onClose={handleCloseRowModal} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3, p: 1 } }}>
+      {/* ROW ACTION MODAL (INDIVIDUAL REVIEW) */}
+      <Dialog open={isRowModalOpen} onClose={handleCloseRowModal} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3, p: 1 } }}>
         {selectedRowData && (
           <>
             <DialogTitle>
@@ -597,13 +617,13 @@ const AISecurityDashboard = () => {
                   <Typography variant="subtitle2" fontWeight="700" color="#0f172a" gutterBottom>System Error Encountered</Typography>
                   <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f8fafc', borderColor: '#e2e8f0' }}><Typography variant="body2" color="#334155" fontFamily="monospace">{selectedRowData.error}</Typography></Paper>
                 </Box>
-                <Box sx={{ display: 'flex', gap: 2, flexDirection: 'row', width: '100%' }}>
-                  <Paper elevation={0} sx={{ flex: 1, p: 2.5, bgcolor: '#eff6ff', border: '1px solid #bfdbfe', borderLeft: '4px solid #3b82f6', borderRadius: 2, display: 'flex', flexDirection: 'column' }}>
+                <Box sx={{ display: 'flex', gap: 2, flexDirection: 'row', width: '100%', flexWrap: 'wrap' }}>
+                  <Paper elevation={0} sx={{ flex: '1 1 300px', p: 2.5, bgcolor: '#eff6ff', border: '1px solid #bfdbfe', borderLeft: '4px solid #3b82f6', borderRadius: 2, display: 'flex', flexDirection: 'column' }}>
                     <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}><AutoAwesome sx={{ color: '#1e40af', fontSize: 20 }} /><Typography variant="subtitle2" fontWeight="700" color="#1e40af">AI Root Cause Analysis</Typography></Stack>
                     <Typography variant="body2" color="#1e3a8a" sx={{ lineHeight: 1.6, flexGrow: 1 }}>{selectedRowData.analysis}</Typography>
                     <AISourcesDisplay sources={selectedRowData.sources} />
                   </Paper>
-                  <Paper elevation={0} sx={{ flex: 1, p: 2.5, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '4px solid #22c55e', borderRadius: 2, display: 'flex', flexDirection: 'column' }}>
+                  <Paper elevation={0} sx={{ flex: '1 1 300px', p: 2.5, bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderLeft: '4px solid #22c55e', borderRadius: 2, display: 'flex', flexDirection: 'column' }}>
                     <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}><CheckCircleOutline sx={{ color: '#166534', fontSize: 20 }} /><Typography variant="subtitle2" fontWeight="700" color="#166534">AI Solution</Typography></Stack>
                     <Typography variant="body2" color="#14532d" sx={{ lineHeight: 1.6, flexGrow: 1, mb: 2 }}>{selectedRowData.recommendation}</Typography>
                     <Stack direction="row" alignItems="center" spacing={2}><LinearProgress variant="determinate" value={selectedRowData.conf} sx={{ flexGrow: 1, height: 6, borderRadius: 3, bgcolor: '#bbf7d0', '& .MuiLinearProgress-bar': { bgcolor: '#22c55e' } }} /><Typography variant="caption" fontWeight="700" color="#166534">{selectedRowData.conf}% conf.</Typography></Stack>
@@ -625,6 +645,53 @@ const AISecurityDashboard = () => {
           </>
         )}
       </Dialog>
+
+      {/* BULK ACTION CONFIRMATION MODAL */}
+      <Dialog open={confirmModal.isOpen} onClose={handleCloseConfirmModal} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            {confirmModal.action === 'approve' ? <CheckCircleOutline color="success" /> : <WarningAmber color="error" />}
+            <Typography variant="h6" fontWeight="800">
+              Confirm {confirmModal.action === 'approve' ? 'Approval' : 'Rejection'}
+            </Typography>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+            Are you sure you want to {confirmModal.action} {confirmModal.isAll ? `all ${confirmModal.count} pending` : `the ${confirmModal.count} selected`} {confirmModal.count === 1 ? 'item' : 'items'}?
+          </Typography>
+
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle2" fontWeight="700" color="#0f172a" gutterBottom>
+              Approval/Rejection Notes (Optional)
+            </Typography>
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              placeholder={confirmModal.action === 'approve' ? "Add any notes for this bulk approval..." : "Provide reasons for rejecting these AI recommendations..."}
+              value={bulkActionNotes}
+              onChange={(e) => setBulkActionNotes(e.target.value)}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5, pt: 1 }}>
+          <Button onClick={handleCloseConfirmModal} sx={{ color: '#64748b', fontWeight: 600 }}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            onClick={handleExecuteBulkAction} 
+            sx={{ 
+              bgcolor: confirmModal.action === 'approve' ? '#22c55e' : '#ef4444', 
+              '&:hover': { bgcolor: confirmModal.action === 'approve' ? '#16a34a' : '#dc2626' }, 
+              fontWeight: 600, borderRadius: 2, boxShadow: 'none' 
+            }}
+          >
+            Yes, {confirmModal.action === 'approve' ? 'Approve' : 'Reject'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
     </Box>
   );
 };

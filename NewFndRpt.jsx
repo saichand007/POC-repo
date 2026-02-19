@@ -1,45 +1,35 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 
-// ─── Color tokens (light theme) ───────────────────────────────────────────────
-// BG:    #FFFFFF page  |  #F8F9FB panels  |  #F1F3F7 table stripes
-// Text:  #111827 primary  |  #374151 secondary  |  #6B7280 muted  |  #9CA3AF placeholder
-// Brand: #6C3AED purple  |  #5B21B6 dark purple
-// Border: #E5E7EB default  |  #D1D5DB strong
-
+// ─── Color tokens ─────────────────────────────────────────────────────────────
 const C = {
-  bg:       "#FFFFFF",
-  bgPanel:  "#F8F9FB",
-  bgStripe: "#F9FAFB",
-  bgHover:  "#F3F4F6",
-  bgActive: "#F5F3FF",
-  nav:      "#1E0A3C",
-  navText:  "#FFFFFF",
-  brand:    "#6C3AED",
-  brandDark:"#5B21B6",
-  brandLight:"#EDE9FE",
-  border:   "#E5E7EB",
-  borderStrong: "#D1D5DB",
-  text:     "#111827",
-  textSec:  "#374151",
-  textMuted:"#6B7280",
-  textDim:  "#9CA3AF",
-  green:    "#059669",
-  greenBg:  "#ECFDF5",
-  greenText:"#065F46",
-  red:      "#DC2626",
-  redBg:    "#FEF2F2",
-  redText:  "#991B1B",
-  amber:    "#D97706",
-  amberBg:  "#FFFBEB",
-  amberText:"#92400E",
+  bg:          "#FFFFFF",
+  bgPanel:     "#F8F9FB",
+  bgStripe:    "#FAFAFA",
+  bgHover:     "#F3F4F6",
+  bgActive:    "#F5F3FF",
+  nav:         "#1E0A3C",
+  brand:       "#6C3AED",
+  brandLight:  "#EDE9FE",
+  border:      "#E5E7EB",
+  borderStrong:"#D1D5DB",
+  text:        "#111827",
+  textSec:     "#374151",
+  textMuted:   "#6B7280",
+  textDim:     "#9CA3AF",
+  green:       "#059669",
+  greenBg:     "#ECFDF5",
+  red:         "#DC2626",
+  redBg:       "#FEF2F2",
+  amber:       "#D97706",
+  amberBg:     "#FFFBEB",
 };
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 const FUNDS = [
-  { id:"f1", name:"Wayne Enterprises Capital Partners VII", short:"WECP VII", manager:"Wayne Capital Management", vintage:2020, strategy:"Buyout", size:"$2.4B", currency:"USD", status:"Active", reportDate:"Q2 2020", assetsCount:7, nav:"$3.1B", irr:"18.4%", tvpi:"1.62x" },
-  { id:"f2", name:"Apollo Growth Fund IV", short:"AGF IV", manager:"Apollo Capital", vintage:2019, strategy:"Growth Equity", size:"$1.8B", currency:"USD", status:"Active", reportDate:"Q3 2024", assetsCount:4, nav:"$2.4B", irr:"21.2%", tvpi:"1.88x" },
-  { id:"f3", name:"KKR Infrastructure III", short:"KKR Infra III", manager:"KKR & Co.", vintage:2018, strategy:"Infrastructure", size:"$3.2B", currency:"USD", status:"Harvesting", reportDate:"Q4 2023", assetsCount:3, nav:"$4.0B", irr:"21.1%", tvpi:"1.95x" },
-  { id:"f4", name:"Blackstone Real Assets II", short:"BRA II", manager:"Blackstone Group", vintage:2021, strategy:"Real Assets", size:"$5.1B", currency:"USD", status:"Deploying", reportDate:"Q1 2024", assetsCount:5, nav:"$5.3B", irr:"12.8%", tvpi:"1.24x" },
+  { id:"f1", name:"Wayne Enterprises Capital Partners VII", short:"WECP VII",   manager:"Wayne Capital Management", vintage:2020, strategy:"Buyout",        size:"$2.4B", status:"Active",    reportDate:"Q2 2020", assetsCount:7, nav:"$3.1B", irr:"18.4%", tvpi:"1.62x" },
+  { id:"f2", name:"Apollo Growth Fund IV",                  short:"AGF IV",     manager:"Apollo Capital",           vintage:2019, strategy:"Growth Equity",  size:"$1.8B", status:"Active",    reportDate:"Q3 2024", assetsCount:4, nav:"$2.4B", irr:"21.2%", tvpi:"1.88x" },
+  { id:"f3", name:"KKR Infrastructure III",                 short:"KKR Infra",  manager:"KKR & Co.",                vintage:2018, strategy:"Infrastructure", size:"$3.2B", status:"Harvesting",reportDate:"Q4 2023", assetsCount:3, nav:"$4.0B", irr:"21.1%", tvpi:"1.95x" },
+  { id:"f4", name:"Blackstone Real Assets II",              short:"BRA II",     manager:"Blackstone Group",         vintage:2021, strategy:"Real Assets",    size:"$5.1B", status:"Deploying", reportDate:"Q1 2024", assetsCount:5, nav:"$5.3B", irr:"12.8%", tvpi:"1.24x" },
 ];
 
 const ASSETS_BY_FUND = {
@@ -49,20 +39,26 @@ const ASSETS_BY_FUND = {
   f4:["Logistics Hub Alpha","Energy Transition Co","Metro Office REIT","Harbor Freight Trust","Sunbelt Industrial"],
 };
 
-const TAB_DESCRIPTIONS = {
-  "ASSET INVESTMENT": "Deal-level investment data extracted from the report — entry dates, capital deployed, distributions received, and return multiples per portfolio company.",
-  "ASSET PERFORMANCE": "Operational & financial KPIs for each portfolio company — revenue, EBITDA, margins and growth rates sourced from portfolio monitoring sections.",
-  "FUND": "Fund-level ownership and attribution metrics — % ownership, cost basis and total value attributable to this fund (vs. co-investors).",
-  "STATIC": "Firmographic & profile data for each portfolio company — sector, geography, leadership, headcount. Rarely changes between reports.",
-  "STATIC (FREE METRICS)": "User-defined custom fields that are not part of Accelex's standard extraction schema. Add any bespoke metrics your team tracks.",
-};
-
+// ─── Each tab has SEMANTICALLY DIFFERENT metric categories ───────────────────
+// ASSET INVESTMENT  → deal-level: when bought, how much paid, what returned
+// ASSET PERFORMANCE → operating KPIs: revenue, EBITDA, growth from portfolio reports
+// FUND              → fund-level attribution: this fund's % stake, cost, value
+// STATIC            → firmographic: sector, country, CEO — rarely changes
+// STATIC (FREE)     → user-defined custom fields not in Accelex schema
 const METRICS_BY_TYPE = {
   "ASSET INVESTMENT":      ["Entry date","Total capital invested","Total distributions","Residual value (FMV)","Total value","Multiple on invested capital (MOIC)","Asset IRR"],
   "ASSET PERFORMANCE":     ["Revenue (LTM)","EBITDA (LTM)","EBITDA Margin","Net Revenue Growth YoY","Net Debt / EBITDA","EV / EBITDA","Gross Margin %"],
   "FUND":                  ["Fund Ownership %","Cost (fund share)","Realized Proceeds","Unrealized Value","Total Value (fund)","Multiple of Cost","Gross IRR"],
   "STATIC":                ["Country","Sector","CEO","Founded Year","Employees","HQ City","Website"],
   "STATIC (FREE METRICS)": ["ESG Score","Board Seats Held","Co-investors","Deal Type","Hold Period (yrs)"],
+};
+
+const TAB_META = {
+  "ASSET INVESTMENT":      { icon:"💰", short:"Investment", color:"#6C3AED", desc:"Deal-level entry data — when the investment was made, how much capital was deployed, what distributions have been received, and overall return metrics (MOIC, IRR) per portfolio company." },
+  "ASSET PERFORMANCE":     { icon:"📈", short:"Performance", color:"#059669", desc:"Operational & financial KPIs sourced from portfolio monitoring sections — revenue, EBITDA, margins, growth rates. These reflect the company's current operating health." },
+  "FUND":                  { icon:"🏦", short:"Fund", color:"#2563EB", desc:"Fund-level attribution metrics — this fund's % ownership in each asset, the fund's cost basis, and the fund's share of realized and unrealized value (as opposed to co-investor allocations)." },
+  "STATIC":                { icon:"🏢", short:"Static", color:"#D97706", desc:"Firmographic company profile data — country, sector, CEO, headcount, HQ location. This data rarely changes between quarterly reports and is used for screening and classification." },
+  "STATIC (FREE METRICS)": { icon:"✏️", short:"Free", color:"#DB2777", desc:"User-defined custom fields outside Accelex's standard schema. Add any bespoke metrics your team tracks — ESG scores, board representation, co-investor names, deal classification, hold period." },
 };
 
 const ASSET_DATA = {
@@ -118,44 +114,38 @@ const ASSET_DATA = {
 };
 
 const ASSET_META = {
-  "Local Standing & Move":   { icon:"🏦", color:"#6366F1", sector:"Finance",    country:"USA",      status:"Realized" },
-  "Great Sea Smoothing":     { icon:"🌊", color:"#059669", sector:"Consumer",   country:"UK",       status:"Realized" },
-  "Watchmen International":  { icon:"🔐", color:"#D97706", sector:"Security",   country:"USA",      status:"Realized" },
-  "Expert Crew":             { icon:"⚙️", color:"#DB2777", sector:"Services",   country:"Germany",  status:"Realized" },
-  "Winter Capital III":      { icon:"❄️", color:"#2563EB", sector:"Finance",    country:"France",   status:"Unrealized" },
-  "IPA Cold Transfer":       { icon:"💊", color:"#DC2626", sector:"Tech",       country:"USA",      status:"Unrealized" },
-  "DoubleFace Skin Wealth":  { icon:"✨", color:"#7C3AED", sector:"Beauty",     country:"Japan",    status:"Unrealized" },
-  "TechCorp Holdings":       { icon:"💻", color:"#0891B2", sector:"Tech",       country:"USA",      status:"Active" },
-  "MedLife Sciences":        { icon:"🧬", color:"#059669", sector:"Healthcare", country:"Germany",  status:"Active" },
-  "RetailMax Group":         { icon:"🛒", color:"#EA580C", sector:"Consumer",   country:"UK",       status:"Active" },
-  "Cosmos Products":         { icon:"🚀", color:"#7C3AED", sector:"Tech",       country:"USA",      status:"Active" },
-  "Pacific Port Authority":  { icon:"⚓", color:"#0284C7", sector:"Transport",  country:"Australia",status:"Active" },
-  "Nordic Power Grid":       { icon:"⚡", color:"#CA8A04", sector:"Utilities",  country:"Sweden",   status:"Active" },
-  "Iberian Toll Roads":      { icon:"🛣️", color:"#16A34A", sector:"Transport",  country:"Spain",    status:"Active" },
+  "Local Standing & Move":   { icon:"🏦", color:"#6366F1", sector:"Finance",    country:"USA",       invStatus:"Realized" },
+  "Great Sea Smoothing":     { icon:"🌊", color:"#059669", sector:"Consumer",   country:"UK",        invStatus:"Realized" },
+  "Watchmen International":  { icon:"🔐", color:"#D97706", sector:"Security",   country:"USA",       invStatus:"Realized" },
+  "Expert Crew":             { icon:"⚙️", color:"#DB2777", sector:"Services",   country:"Germany",   invStatus:"Realized" },
+  "Winter Capital III":      { icon:"❄️", color:"#2563EB", sector:"Finance",    country:"France",    invStatus:"Unrealized" },
+  "IPA Cold Transfer":       { icon:"💊", color:"#DC2626", sector:"Tech",       country:"USA",       invStatus:"Unrealized" },
+  "DoubleFace Skin Wealth":  { icon:"✨", color:"#7C3AED", sector:"Beauty",     country:"Japan",     invStatus:"Unrealized" },
+  "TechCorp Holdings":       { icon:"💻", color:"#0891B2", sector:"Tech",       country:"USA",       invStatus:"Active" },
+  "MedLife Sciences":        { icon:"🧬", color:"#059669", sector:"Healthcare", country:"Germany",   invStatus:"Active" },
+  "RetailMax Group":         { icon:"🛒", color:"#EA580C", sector:"Consumer",   country:"UK",        invStatus:"Active" },
+  "Cosmos Products":         { icon:"🚀", color:"#7C3AED", sector:"Tech",       country:"USA",       invStatus:"Active" },
+  "Pacific Port Authority":  { icon:"⚓", color:"#0284C7", sector:"Transport",  country:"Australia", invStatus:"Active" },
+  "Nordic Power Grid":       { icon:"⚡", color:"#CA8A04", sector:"Utilities",  country:"Sweden",    invStatus:"Active" },
+  "Iberian Toll Roads":      { icon:"🛣️", color:"#16A34A", sector:"Transport",  country:"Spain",     invStatus:"Active" },
 };
 
 // ─── Resizable hook ───────────────────────────────────────────────────────────
-function useResizable(initial = 46, min = 26, max = 74) {
+function useResizable(initial = 48, min = 28, max = 72) {
   const [pct, setPct] = useState(initial);
   const dragging = useRef(false);
   const containerRef = useRef(null);
   const onMouseDown = useCallback((e) => {
-    e.preventDefault();
-    dragging.current = true;
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
+    e.preventDefault(); dragging.current = true;
+    document.body.style.cursor = "col-resize"; document.body.style.userSelect = "none";
   }, []);
   useEffect(() => {
-    const onMove = (e) => {
+    const onMove = e => {
       if (!dragging.current || !containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      setPct(Math.min(max, Math.max(min, ((e.clientX - rect.left) / rect.width) * 100)));
+      const r = containerRef.current.getBoundingClientRect();
+      setPct(Math.min(max, Math.max(min, ((e.clientX - r.left) / r.width) * 100)));
     };
-    const onUp = () => {
-      dragging.current = false;
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-    };
+    const onUp = () => { dragging.current = false; document.body.style.cursor = ""; document.body.style.userSelect = ""; };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
     return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
@@ -163,11 +153,12 @@ function useResizable(initial = 46, min = 26, max = 74) {
   return { pct, containerRef, onMouseDown };
 }
 
-// ─── Main App ─────────────────────────────────────────────────────────────────
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [selectedFund, setSelectedFund] = useState(null);
   const [loading, setLoading]           = useState(false);
   const [metricType, setMetricType]     = useState("ASSET INVESTMENT");
+  const [viewMode, setViewMode]         = useState("group"); // "list" | "group"
   const [filter, setFilter]             = useState("all");
   const [highlightMode, setHighlightMode] = useState("single");
   const [activeCell, setActiveCell]     = useState(null);
@@ -177,7 +168,8 @@ export default function App() {
   const [zoom, setZoom]                 = useState(100);
   const [searchQ, setSearchQ]           = useState("");
   const [showTabInfo, setShowTabInfo]   = useState(false);
-  const { pct, containerRef, onMouseDown } = useResizable(46, 26, 74);
+  const [showGroupInfo, setShowGroupInfo] = useState(false);
+  const { pct, containerRef, onMouseDown } = useResizable();
 
   function handleSelectFund(fund) {
     setLoading(true);
@@ -185,27 +177,22 @@ export default function App() {
       setSelectedFund(fund);
       setLoading(false);
       setMetricType("ASSET INVESTMENT");
-      setFilter("all");
-      setActiveCell(null);
-      setEditedValues({});
-      setExpandedAssets(new Set());
-      setPdfPage(4);
+      setFilter("all"); setActiveCell(null); setEditedValues({});
+      setExpandedAssets(new Set()); setPdfPage(4); setViewMode("group");
     }, 800);
   }
 
   function getValue(asset, metric) {
     const key = `${asset}__${metric}`;
-    if (key in editedValues) return editedValues[key];
-    return (ASSET_DATA[asset]?.[metricType]?.[metric]) ?? "";
+    return key in editedValues ? editedValues[key] : (ASSET_DATA[asset]?.[metricType]?.[metric] ?? "");
   }
   function setValue(asset, metric, val) {
-    setEditedValues(prev => ({ ...prev, [`${asset}__${metric}`]: val }));
+    setEditedValues(p => ({ ...p, [`${asset}__${metric}`]: val }));
     if (val.trim()) setActiveCell({ asset, metric });
   }
   function isModified(asset, metric) {
     const key = `${asset}__${metric}`;
-    if (!(key in editedValues)) return false;
-    return editedValues[key] !== ((ASSET_DATA[asset]?.[metricType]?.[metric]) ?? "");
+    return key in editedValues && editedValues[key] !== (ASSET_DATA[asset]?.[metricType]?.[metric] ?? "");
   }
 
   const assets  = ASSETS_BY_FUND[selectedFund?.id] || [];
@@ -214,36 +201,220 @@ export default function App() {
   const allRows = assets.flatMap(asset =>
     metrics.map(metric => {
       const val = getValue(asset, metric);
-      return { id:`${asset}__${metric}`, asset, metric, value:val, status: val?.trim() ? "found" : "not_found", modified: isModified(asset, metric) };
+      return { id:`${asset}__${metric}`, asset, metric, value:val, status:val?.trim()?"found":"not_found", modified:isModified(asset,metric) };
     })
   );
   const foundRows   = allRows.filter(r => r.status === "found");
   const missingRows = allRows.filter(r => r.status === "not_found");
+
   let filtered = filter === "found" ? foundRows : filter === "not_found" ? missingRows : allRows;
-  if (searchQ) filtered = filtered.filter(r => r.asset.toLowerCase().includes(searchQ.toLowerCase()) || r.metric.toLowerCase().includes(searchQ.toLowerCase()));
+  if (searchQ) filtered = filtered.filter(r =>
+    r.asset.toLowerCase().includes(searchQ.toLowerCase()) ||
+    r.metric.toLowerCase().includes(searchQ.toLowerCase())
+  );
 
   function assetProgress(asset) {
-    const vals = metrics.map(m => getValue(asset, m));
+    const vals  = metrics.map(m => getValue(asset, m));
     const filled = vals.filter(v => v?.trim()).length;
-    return { filled, total: metrics.length, pct: metrics.length ? Math.round(filled / metrics.length * 100) : 0 };
+    return { filled, total:metrics.length, pct: metrics.length ? Math.round(filled / metrics.length * 100) : 0 };
   }
 
   const highlightedValues = (() => {
     if (highlightMode === "none") return [];
     if (highlightMode === "single" && activeCell) return [getValue(activeCell.asset, activeCell.metric)].filter(Boolean);
-    if (highlightMode === "current_filter") return filtered.filter(r => r.value).map(r => r.value);
-    if (highlightMode === "all") return allRows.filter(r => r.value).map(r => r.value);
+    if (highlightMode === "current_filter") return filtered.filter(r=>r.value).map(r=>r.value);
+    if (highlightMode === "all") return allRows.filter(r=>r.value).map(r=>r.value);
     return [];
   })();
 
   const TABS = Object.keys(METRICS_BY_TYPE);
+  const tabMeta = TAB_META[metricType];
 
   if (loading)       return <LoadingScreen />;
   if (!selectedFund) return <FundSelectionScreen onSelect={handleSelectFund} />;
 
-  // ─── MAIN DASHBOARD ──────────────────────────────────────────────────────
+  // ── shared metric row renderer ──
+  function MetricRow({ row, idx }) {
+    const isActive = activeCell?.asset === row.asset && activeCell?.metric === row.metric;
+    return (
+      <div className="row-hover" onClick={()=>setActiveCell({asset:row.asset,metric:row.metric})}
+        style={{ display:"grid", gridTemplateColumns:"30px 1fr 1fr 30px", borderBottom:`1px solid #F3F4F6`,
+          borderLeft:isActive?`3px solid ${C.brand}`:"3px solid transparent",
+          background:isActive?C.bgActive:idx%2===0?C.bg:C.bgStripe, cursor:"pointer", transition:"border-left .1s,background .1s" }}>
+        {/* checkbox */}
+        <div className="rc" onClick={e=>e.stopPropagation()} style={{ padding:"6px 8px",display:"flex",alignItems:"center",borderRight:`1px solid ${C.border}` }}>
+          <input type="checkbox" style={{width:11,height:11}}/>
+        </div>
+        {/* metric name */}
+        <div className="rc" style={{ padding:"6px 10px",fontSize:11,color:isActive?C.brand:C.textSec,borderRight:`1px solid ${C.border}`,display:"flex",alignItems:"center",overflow:"hidden" }}>
+          <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row.metric}</span>
+        </div>
+        {/* editable value */}
+        <div className="rc" onClick={e=>e.stopPropagation()} style={{ padding:"4px 8px",borderRight:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:5 }}>
+          <span style={{ width:6,height:6,borderRadius:"50%",flexShrink:0,
+            background:row.modified?C.amber:row.status==="found"?C.green:C.border,display:"inline-block" }}/>
+          <input
+            className={`val-input ${row.modified?"modified":row.status==="found"?"filled":"empty"}`}
+            value={row.value}
+            placeholder="not found — type to add"
+            onChange={e=>setValue(row.asset, row.metric, e.target.value)}
+            onClick={e=>{e.stopPropagation();setActiveCell({asset:row.asset,metric:row.metric});}}
+          />
+        </div>
+        {/* page */}
+        <div className="rc" style={{ padding:"6px 4px",fontSize:10,color:C.brand,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'IBM Plex Mono',monospace",fontWeight:600 }}>
+          {row.status==="found"||row.modified?"4":"—"}
+        </div>
+      </div>
+    );
+  }
+
+  // ── LIST VIEW: flat table, asset name column visible ──
+  function ListView() {
+    const listRows = filtered;
+    return (
+      <>
+        {/* List column headers */}
+        <div style={{ display:"grid",gridTemplateColumns:"30px 160px 1fr 1fr 30px",background:C.bgPanel,borderBottom:`1px solid ${C.border}`,flexShrink:0,userSelect:"none" }}>
+          {["","ASSET NAME","METRIC NAME","VALUE  (editable)","PG"].map((h,i)=>(
+            <div key={i} style={{ padding:"7px 10px",fontSize:9,fontWeight:700,color:C.textDim,letterSpacing:"0.7px",borderRight:i<4?`1px solid ${C.border}`:"none",display:"flex",alignItems:"center" }}>
+              {i===0?<input type="checkbox" style={{width:12,height:12}}/>:h}
+            </div>
+          ))}
+        </div>
+        <div style={{ flex:1,overflowY:"auto" }}>
+          {listRows.length === 0 && (
+            <div style={{ padding:"48px 24px",textAlign:"center",color:C.textDim }}>
+              <div style={{fontSize:32,marginBottom:8}}>🔍</div>
+              <div style={{fontSize:13,color:C.textMuted}}>No metrics match your filters</div>
+            </div>
+          )}
+          {listRows.map((row, idx) => {
+            const isActive = activeCell?.asset === row.asset && activeCell?.metric === row.metric;
+            const meta = ASSET_META[row.asset] || {};
+            return (
+              <div key={row.id} className="row-hover" onClick={()=>setActiveCell({asset:row.asset,metric:row.metric})}
+                style={{ display:"grid",gridTemplateColumns:"30px 160px 1fr 1fr 30px",borderBottom:`1px solid #F3F4F6`,
+                  borderLeft:isActive?`3px solid ${C.brand}`:"3px solid transparent",
+                  background:isActive?C.bgActive:idx%2===0?C.bg:C.bgStripe,cursor:"pointer",transition:"border-left .1s,background .1s" }}>
+                <div className="rc" onClick={e=>e.stopPropagation()} style={{ padding:"6px 8px",display:"flex",alignItems:"center",borderRight:`1px solid ${C.border}` }}>
+                  <input type="checkbox" style={{width:11,height:11}}/>
+                </div>
+                {/* Asset name + icon */}
+                <div className="rc" style={{ padding:"5px 10px",borderRight:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:6,overflow:"hidden" }}>
+                  <span style={{ fontSize:13,flexShrink:0 }}>{meta.icon||"🏢"}</span>
+                  <span style={{ fontSize:11,fontWeight:500,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{row.asset}</span>
+                </div>
+                {/* Metric */}
+                <div className="rc" style={{ padding:"6px 10px",fontSize:11,color:isActive?C.brand:C.textSec,borderRight:`1px solid ${C.border}`,display:"flex",alignItems:"center",overflow:"hidden" }}>
+                  <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{row.metric}</span>
+                </div>
+                {/* Value */}
+                <div className="rc" onClick={e=>e.stopPropagation()} style={{ padding:"4px 8px",borderRight:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:5 }}>
+                  <span style={{ width:6,height:6,borderRadius:"50%",flexShrink:0,background:row.modified?C.amber:row.status==="found"?C.green:C.border,display:"inline-block" }}/>
+                  <input className={`val-input ${row.modified?"modified":row.status==="found"?"filled":"empty"}`}
+                    value={row.value} placeholder="not found — type to add"
+                    onChange={e=>setValue(row.asset,row.metric,e.target.value)}
+                    onClick={e=>{e.stopPropagation();setActiveCell({asset:row.asset,metric:row.metric});}}/>
+                </div>
+                <div className="rc" style={{ padding:"6px 4px",fontSize:10,color:C.brand,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'IBM Plex Mono',monospace",fontWeight:600 }}>
+                  {row.status==="found"||row.modified?"4":"—"}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </>
+    );
+  }
+
+  // ── GROUP VIEW: collapsed asset headers with metric rows inside ──
+  function GroupView() {
+    return (
+      <>
+        {/* Group column headers */}
+        <div style={{ display:"grid",gridTemplateColumns:"30px 1fr 1fr 30px",background:C.bgPanel,borderBottom:`1px solid ${C.border}`,flexShrink:0,userSelect:"none" }}>
+          {["","METRIC NAME","VALUE  (editable)","PG"].map((h,i)=>(
+            <div key={i} style={{ padding:"7px 10px",fontSize:9,fontWeight:700,color:C.textDim,letterSpacing:"0.7px",borderRight:i<3?`1px solid ${C.border}`:"none",display:"flex",alignItems:"center" }}>
+              {i===0?<input type="checkbox" style={{width:12,height:12}}/>:h}
+            </div>
+          ))}
+        </div>
+        <div style={{ flex:1,overflowY:"auto" }}>
+          {assets.map(asset => {
+            const meta     = ASSET_META[asset] || { icon:"🏢",color:C.brand,sector:"—",country:"—",invStatus:"—" };
+            const prog     = assetProgress(asset);
+            const expanded = expandedAssets.has(asset);
+
+            // rows for this asset under current filter + search
+            const assetRows = metrics.map(metric => ({
+              id:`${asset}__${metric}`, asset, metric,
+              value:getValue(asset,metric),
+              status:getValue(asset,metric)?.trim()?"found":"not_found",
+              modified:isModified(asset,metric),
+            })).filter(r =>
+              (filter==="found"?r.status==="found":filter==="not_found"?r.status==="not_found":true) &&
+              (!searchQ || r.metric.toLowerCase().includes(searchQ.toLowerCase()) || r.asset.toLowerCase().includes(searchQ.toLowerCase()))
+            );
+
+            if (searchQ && assetRows.length === 0) return null;
+            if (filter !== "all" && assetRows.length === 0) return null;
+
+            const invStatusColor = { "Realized":C.green,"Unrealized":C.brand,"Active":C.amber }[meta.invStatus] || C.textDim;
+            const invStatusBg    = { "Realized":C.greenBg,"Unrealized":C.brandLight,"Active":C.amberBg }[meta.invStatus] || C.bgPanel;
+
+            return (
+              <div key={asset} style={{ borderBottom:`1px solid ${C.border}`,animation:"fadeUp .18s ease" }}>
+                {/* ── Asset group header ── */}
+                <div className="asset-hdr"
+                  onClick={()=>setExpandedAssets(p=>{const n=new Set(p);n.has(asset)?n.delete(asset):n.add(asset);return n;})}
+                  style={{ display:"flex",alignItems:"center",gap:8,padding:"10px 12px",cursor:"pointer",
+                    background:expanded?"#F8F7FF":C.bg,transition:"background .12s",
+                    borderLeft:`3px solid ${expanded?meta.color:"transparent"}` }}>
+                  {/* chevron */}
+                  <span style={{ fontSize:10,color:expanded?C.brand:C.textDim,flexShrink:0,width:12,transition:"color .15s",fontWeight:700 }}>
+                    {expanded?"▾":"▸"}
+                  </span>
+                  {/* asset icon */}
+                  <div style={{ width:28,height:28,borderRadius:8,background:`${meta.color}18`,border:`1px solid ${meta.color}28`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0 }}>
+                    {meta.icon}
+                  </div>
+                  {/* name + tags */}
+                  <div style={{ flex:1,minWidth:0 }}>
+                    <div style={{ fontSize:12,fontWeight:600,color:expanded?C.text:C.textSec,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{asset}</div>
+                    <div style={{ display:"flex",gap:5,marginTop:2,alignItems:"center",flexWrap:"wrap" }}>
+                      <span style={{ fontSize:9,color:C.textDim }}>{meta.sector}</span>
+                      <span style={{ fontSize:9,color:C.border }}>·</span>
+                      <span style={{ fontSize:9,color:C.textDim }}>{meta.country}</span>
+                      <span style={{ fontSize:9,padding:"1px 6px",borderRadius:3,background:invStatusBg,color:invStatusColor,fontWeight:600 }}>{meta.invStatus}</span>
+                    </div>
+                  </div>
+                  {/* completion progress for this tab */}
+                  <div style={{ display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3,flexShrink:0 }}>
+                    <div style={{ display:"flex",alignItems:"center",gap:5 }}>
+                      <span style={{ fontSize:10,fontWeight:700,fontFamily:"'IBM Plex Mono',monospace",color:prog.pct===100?C.green:prog.pct>50?C.amber:C.red }}>{prog.pct}%</span>
+                      <span style={{ fontSize:9,color:C.textDim }}>{prog.filled}/{prog.total}</span>
+                    </div>
+                    <div style={{ width:54,height:3,background:C.border,borderRadius:2 }}>
+                      <div style={{ width:`${prog.pct}%`,height:"100%",borderRadius:2,transition:"width .4s",background:prog.pct===100?C.green:prog.pct>50?C.amber:C.red }}/>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Metric rows under this asset ── */}
+                {(expanded || !!searchQ) && assetRows.map((row, idx) => (
+                  <MetricRow key={row.id} row={row} idx={idx}/>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </>
+    );
+  }
+
   return (
-    <div style={{ fontFamily:"'IBM Plex Sans','Helvetica Neue',sans-serif", background:C.bg, minHeight:"100vh", display:"flex", flexDirection:"column", fontSize:13, color:C.text }}>
+    <div style={{ fontFamily:"'IBM Plex Sans','Helvetica Neue',sans-serif",background:C.bg,minHeight:"100vh",display:"flex",flexDirection:"column",fontSize:13,color:C.text }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
@@ -251,46 +422,45 @@ export default function App() {
         ::-webkit-scrollbar-track{background:#F3F4F6;}
         ::-webkit-scrollbar-thumb{background:#D1D5DB;border-radius:3px;}
         ::-webkit-scrollbar-thumb:hover{background:#9CA3AF;}
-        @keyframes fadeUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes pulseHL{0%,100%{box-shadow:0 0 0 0 rgba(217,119,6,.4)}60%{box-shadow:0 0 0 5px rgba(217,119,6,0)}}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes pulseHL{0%,100%{box-shadow:0 0 0 0 rgba(217,119,6,.35)}60%{box-shadow:0 0 0 5px rgba(217,119,6,0)}}
         @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-        @keyframes shimmer{0%,100%{opacity:.5}50%{opacity:1}}
         .tab-btn:hover{color:${C.brand}!important;background:${C.brandLight}!important;}
-        .asset-hdr:hover{background:#F3F4F6!important;}
+        .asset-hdr:hover{background:#F5F3FF!important;}
         .row-hover:hover .rc{background:#F0EEFF!important;}
         .chip:hover{border-color:${C.brand}!important;color:${C.brand}!important;}
         .dh:hover .dl{background:${C.brand}!important;}
         .dh:hover .dg{color:${C.brand}!important;border-color:${C.brand}!important;}
-        .nav-link:hover{color:#C4B5FD!important;}
+        .nav-lnk:hover{color:#C4B5FD!important;}
         .fund-card:hover{border-color:${C.brand}!important;box-shadow:0 4px 20px rgba(108,58,237,.12)!important;transform:translateY(-2px);}
         .fund-card{transition:all .2s ease;}
+        .view-btn{transition:all .15s;}
+        .view-btn:hover{background:#F3F4F6!important;}
         .val-input{background:transparent;border:none;outline:none;width:100%;color:${C.text};font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;cursor:text;padding:1px 3px;border-radius:3px;}
-        .val-input:focus{background:#F5F3FF;outline:1.5px solid ${C.brand};color:${C.text};}
+        .val-input:focus{background:#F5F3FF;outline:1.5px solid ${C.brand};}
         .val-input.empty{color:${C.textDim};font-style:italic;font-weight:400;}
-        .val-input.empty::placeholder{color:#C4CBDA;}
+        .val-input.empty::placeholder{color:#C9D0DC;}
         .val-input.filled{color:${C.text};}
         .val-input.modified{color:${C.amber}!important;background:${C.amberBg}!important;outline:1.5px solid #FCD34D!important;}
         input[type=checkbox]{accent-color:${C.brand};cursor:pointer;}
       `}</style>
 
       {/* ── TOP NAV ── */}
-      <div style={{ background:C.nav, display:"flex", alignItems:"center", padding:"0 20px", height:50, flexShrink:0 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8, marginRight:28, cursor:"pointer" }} onClick={()=>setSelectedFund(null)}>
+      <div style={{ background:C.nav,display:"flex",alignItems:"center",padding:"0 20px",height:50,flexShrink:0 }}>
+        <div style={{ display:"flex",alignItems:"center",gap:8,marginRight:28,cursor:"pointer" }} onClick={()=>setSelectedFund(null)}>
           <div style={{ width:28,height:28,background:"linear-gradient(135deg,#7C3AED,#A855F7)",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:800,color:"#fff" }}>A</div>
           <span style={{ color:"#fff",fontWeight:700,fontSize:14,letterSpacing:"-0.3px" }}>accelex</span>
         </div>
         {["DASHBOARD","DOCUMENTS","TRACKER","AUDIT","FILTERS","REFERENCE"].map(n=>(
-          <button key={n} className="nav-link" style={{ background:"none",border:"none",color:n==="DOCUMENTS"?"#E9D5FF":"rgba(255,255,255,.45)",fontFamily:"inherit",fontSize:10.5,fontWeight:700,letterSpacing:"0.7px",padding:"0 12px",height:"100%",cursor:"pointer",borderBottom:n==="DOCUMENTS"?"2px solid #A855F7":"2px solid transparent",transition:"color .15s" }}>{n}</button>
+          <button key={n} className="nav-lnk" style={{ background:"none",border:"none",color:n==="DOCUMENTS"?"#E9D5FF":"rgba(255,255,255,.4)",fontFamily:"inherit",fontSize:10.5,fontWeight:700,letterSpacing:"0.7px",padding:"0 12px",height:"100%",cursor:"pointer",borderBottom:n==="DOCUMENTS"?"2px solid #A855F7":"2px solid transparent",transition:"color .15s" }}>{n}</button>
         ))}
         <div style={{ flex:1 }}/>
-        <button onClick={()=>setSelectedFund(null)} style={{ background:"rgba(255,255,255,.1)",border:"1px solid rgba(255,255,255,.2)",borderRadius:6,padding:"4px 11px",fontSize:11,color:"rgba(255,255,255,.7)",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:5,marginRight:10 }}>
-          <span>‹</span> All Funds
-        </button>
-        <div style={{ background:"rgba(167,139,250,.2)",border:"1px solid rgba(167,139,250,.35)",borderRadius:6,padding:"4px 11px",fontSize:11,color:"#DDD6FE",fontWeight:600 }}>📁 {selectedFund.short}</div>
+        <button onClick={()=>setSelectedFund(null)} style={{ background:"rgba(255,255,255,.1)",border:"1px solid rgba(255,255,255,.18)",borderRadius:6,padding:"4px 11px",fontSize:11,color:"rgba(255,255,255,.7)",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:5,marginRight:10 }}>‹ All Funds</button>
+        <div style={{ background:"rgba(167,139,250,.18)",border:"1px solid rgba(167,139,250,.3)",borderRadius:6,padding:"4px 11px",fontSize:11,color:"#DDD6FE",fontWeight:600 }}>📁 {selectedFund.short}</div>
         <div style={{ width:28,height:28,borderRadius:"50%",background:"linear-gradient(135deg,#7C3AED,#A855F7)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff",marginLeft:10 }}>BL</div>
       </div>
 
-      {/* ── STEPS + BREADCRUMB ── */}
+      {/* ── STEP BREADCRUMB ── */}
       <div style={{ background:C.bg,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",padding:"0 20px",height:40,flexShrink:0 }}>
         {[{n:1,l:"CONFIRM NETWORK"},{n:2,l:"VALIDATE METRICS"}].map(({n,l})=>(
           <div key={n} style={{ display:"flex",alignItems:"center",gap:7,padding:"0 14px 0 0",height:"100%",borderBottom:n===2?`2px solid ${C.brand}`:"2px solid transparent" }}>
@@ -312,37 +482,138 @@ export default function App() {
       </div>
 
       {/* ── METRIC TYPE TABS ── */}
-      <div style={{ background:C.bg,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"stretch",padding:"0 20px",flexShrink:0,gap:1 }}>
-        {TABS.map(tab=>(
-          <button key={tab} className="tab-btn" onClick={()=>{setMetricType(tab);setActiveCell(null);}} style={{ background:metricType===tab?C.brandLight:"transparent",border:"none",borderBottom:metricType===tab?`2px solid ${C.brand}`:"2px solid transparent",marginBottom:"-1px",padding:"9px 14px",fontSize:11,fontWeight:700,letterSpacing:"0.3px",color:metricType===tab?C.brand:C.textMuted,cursor:"pointer",fontFamily:"inherit",transition:"all .15s",borderRadius:"4px 4px 0 0",whiteSpace:"nowrap" }}>{tab}</button>
-        ))}
-        <button onClick={()=>setShowTabInfo(p=>!p)} style={{ background:"none",border:"none",color:showTabInfo?C.brand:C.textDim,cursor:"pointer",fontSize:14,padding:"0 8px",display:"flex",alignItems:"center",transition:"color .15s" }} title="What does this tab show?">ⓘ</button>
+      <div style={{ background:C.bg,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"stretch",padding:"0 20px",flexShrink:0 }}>
+        {TABS.map(tab=>{
+          const tm = TAB_META[tab];
+          const active = metricType === tab;
+          return (
+            <button key={tab} className="tab-btn" onClick={()=>{setMetricType(tab);setActiveCell(null);setShowTabInfo(false);}}
+              style={{ background:active?C.brandLight:"transparent",border:"none",borderBottom:active?`2px solid ${C.brand}`:"2px solid transparent",marginBottom:"-1px",padding:"8px 12px",fontSize:10.5,fontWeight:700,letterSpacing:"0.3px",color:active?C.brand:C.textMuted,cursor:"pointer",fontFamily:"inherit",transition:"all .15s",borderRadius:"4px 4px 0 0",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:5 }}>
+              <span style={{ fontSize:12 }}>{tm.icon}</span>
+              {tab}
+            </button>
+          );
+        })}
+        <button onClick={()=>setShowTabInfo(p=>!p)} style={{ background:"none",border:"none",color:showTabInfo?C.brand:C.textDim,cursor:"pointer",fontSize:14,padding:"0 8px",display:"flex",alignItems:"center",transition:"color .15s",marginLeft:2 }} title="What does this tab show?">ⓘ</button>
       </div>
 
-      {/* TAB INFO */}
+      {/* ── TAB INFO PANEL ── */}
       {showTabInfo && (
-        <div style={{ background:C.brandLight,border:`1px solid #DDD6FE`,borderRadius:8,padding:"10px 16px",margin:"8px 20px",fontSize:12,color:C.brand,lineHeight:1.6,flexShrink:0,animation:"fadeUp .15s ease" }}>
-          <strong>{metricType}:</strong> {TAB_DESCRIPTIONS[metricType]}
-          <button onClick={()=>setShowTabInfo(false)} style={{ float:"right",background:"none",border:"none",color:C.brand,cursor:"pointer",fontSize:14,marginLeft:8,fontWeight:700 }}>✕</button>
+        <div style={{ background:C.brandLight,borderBottom:`1px solid #DDD6FE`,padding:"12px 20px",flexShrink:0,animation:"fadeUp .15s ease" }}>
+          <div style={{ display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:16 }}>
+            <div>
+              <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:6 }}>
+                <span style={{ fontSize:18 }}>{tabMeta.icon}</span>
+                <span style={{ fontSize:13,fontWeight:700,color:C.brand }}>{metricType}</span>
+                <span style={{ fontSize:10,fontWeight:600,background:C.brand,color:"#fff",borderRadius:4,padding:"1px 7px" }}>{metrics.length} metrics</span>
+              </div>
+              <p style={{ fontSize:12,color:"#374151",lineHeight:1.65,maxWidth:680 }}>{tabMeta.desc}</p>
+            </div>
+            <button onClick={()=>setShowTabInfo(false)} style={{ background:"none",border:"none",color:C.brand,cursor:"pointer",fontSize:16,flexShrink:0,fontWeight:700,marginTop:2 }}>✕</button>
+          </div>
+          {/* Metric list chips */}
+          <div style={{ display:"flex",flexWrap:"wrap",gap:5,marginTop:10 }}>
+            <span style={{ fontSize:9,fontWeight:700,color:C.textDim,letterSpacing:"0.5px",alignSelf:"center",marginRight:4 }}>METRICS:</span>
+            {metrics.map(m => (
+              <span key={m} style={{ fontSize:10,background:"#fff",border:`1px solid #DDD6FE`,borderRadius:4,padding:"2px 8px",color:C.brand,fontWeight:500 }}>{m}</span>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* ── FILTER BAR ── */}
-      <div style={{ background:C.bgPanel,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:6,padding:"8px 20px",flexShrink:0 }}>
+      {/* ── FILTER + VIEW TOGGLE BAR ── */}
+      <div style={{ background:C.bgPanel,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:6,padding:"7px 20px",flexShrink:0 }}>
+        {/* Filter chips */}
         {[{k:"all",l:"All",c:allRows.length},{k:"not_found",l:"Missing",c:missingRows.length,col:C.red},{k:"found",l:"Found",c:foundRows.length,col:C.green}].map(({k,l,c,col})=>(
-          <button key={k} className="chip" onClick={()=>setFilter(k)} style={{ background:filter===k?(col?`${col}12`:C.brandLight):C.bg,border:`1.5px solid ${filter===k?(col||C.brand):C.border}`,borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit",color:filter===k?(col||C.brand):C.textMuted,transition:"all .15s",display:"flex",alignItems:"center",gap:4 }}>
+          <button key={k} className="chip" onClick={()=>setFilter(k)}
+            style={{ background:filter===k?(col?`${col}10`:C.brandLight):C.bg,border:`1.5px solid ${filter===k?(col||C.brand):C.border}`,borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit",color:filter===k?(col||C.brand):C.textMuted,transition:"all .15s",display:"flex",alignItems:"center",gap:4 }}>
             {col&&filter===k&&<span style={{ width:5,height:5,borderRadius:"50%",background:col,display:"inline-block" }}/>}
             {l} <strong>{c}</strong>
           </button>
         ))}
         <div style={{ flex:1 }}/>
+        {/* Search */}
         <div style={{ display:"flex",alignItems:"center",gap:6,background:C.bg,border:`1px solid ${C.border}`,borderRadius:7,padding:"5px 10px" }}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={C.textDim} strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder="Search assets or metrics…" style={{ background:"none",border:"none",color:C.text,fontSize:11,fontFamily:"inherit",outline:"none",width:160 }}/>
-          {searchQ&&<button onClick={()=>setSearchQ("")} style={{ background:"none",border:"none",color:C.textDim,cursor:"pointer",fontSize:12,padding:0 }}>✕</button>}
+          <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder="Search assets or metrics…" style={{ background:"none",border:"none",color:C.text,fontSize:11,fontFamily:"inherit",outline:"none",width:155 }}/>
+          {searchQ && <button onClick={()=>setSearchQ("")} style={{ background:"none",border:"none",color:C.textDim,cursor:"pointer",fontSize:12,padding:0 }}>✕</button>}
         </div>
+        {/* ── VIEW MODE TOGGLE ── */}
+        <div style={{ display:"flex",alignItems:"center",gap:0,background:C.bg,border:`1px solid ${C.border}`,borderRadius:8,padding:2,marginLeft:4 }}>
+          <button className="view-btn" onClick={()=>setViewMode("list")} title="List view — flat table showing all rows, one per metric per asset"
+            style={{ display:"flex",alignItems:"center",gap:5,padding:"5px 11px",borderRadius:6,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:11,fontWeight:600,transition:"all .15s",
+              background:viewMode==="list"?C.brand:"transparent", color:viewMode==="list"?"#fff":C.textMuted }}>
+            {/* List icon */}
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+              <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+            </svg>
+            List
+          </button>
+          <button className="view-btn" onClick={()=>setViewMode("group")} title="Group view — rows grouped by asset, collapsible"
+            style={{ display:"flex",alignItems:"center",gap:5,padding:"5px 11px",borderRadius:6,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:11,fontWeight:600,transition:"all .15s",
+              background:viewMode==="group"?C.brand:"transparent", color:viewMode==="group"?"#fff":C.textMuted }}>
+            {/* Group icon */}
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+            Group
+          </button>
+        </div>
+        {/* Group info button — only in group mode */}
+        {viewMode === "group" && (
+          <button onClick={()=>setShowGroupInfo(p=>!p)} title="How is the grouping structured?" style={{ background:showGroupInfo?C.brandLight:"none",border:`1px solid ${showGroupInfo?C.brand:C.border}`,borderRadius:6,padding:"5px 9px",fontSize:11,color:showGroupInfo?C.brand:C.textDim,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:4,transition:"all .15s" }}>
+            ⊞ How grouping works
+          </button>
+        )}
         <button style={{ background:C.brand,border:"none",borderRadius:7,padding:"5px 13px",fontSize:11,color:"#fff",fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>+ Add manually</button>
       </div>
+
+      {/* ── GROUP INFO PANEL ── */}
+      {showGroupInfo && viewMode === "group" && (
+        <div style={{ background:"#FFFBF5",borderBottom:`1px solid #FDE68A`,padding:"14px 20px",flexShrink:0,animation:"fadeUp .15s ease" }}>
+          <div style={{ display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:20 }}>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:12,fontWeight:700,color:"#92400E",marginBottom:10 }}>⊞ How Group View is structured</div>
+              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12 }}>
+                {/* Left: grouping logic */}
+                <div>
+                  <div style={{ fontSize:10,fontWeight:700,color:C.textDim,letterSpacing:"0.6px",marginBottom:6 }}>GROUPING LOGIC</div>
+                  {[
+                    ["Group = Portfolio Company","Each collapsed row header represents one portfolio company (asset) in the fund — e.g. \"Expert Crew\" or \"Great Sea Smoothing\"."],
+                    ["Rows inside = Metrics for that tab","When you expand a group, you see every metric from the current tab (e.g. ASSET INVESTMENT) for that one company only."],
+                    ["Progress bar = Tab completion","The % shown on each group header = metrics with a value ÷ total metrics in the current tab. Switching tabs recalculates it."],
+                    ["Expand/collapse per asset","Click the ▸ arrow on any asset header to reveal or hide its metrics. Search auto-expands all matching groups."],
+                  ].map(([title, desc]) => (
+                    <div key={title} style={{ display:"flex",gap:8,marginBottom:7 }}>
+                      <span style={{ color:"#D97706",fontWeight:700,flexShrink:0,marginTop:1 }}>→</span>
+                      <div>
+                        <div style={{ fontSize:11,fontWeight:600,color:C.text }}>{title}</div>
+                        <div style={{ fontSize:10.5,color:C.textMuted,lineHeight:1.5 }}>{desc}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Right: what each group contains */}
+                <div>
+                  <div style={{ fontSize:10,fontWeight:700,color:C.textDim,letterSpacing:"0.6px",marginBottom:6 }}>WHAT EACH GROUP SHOWS (PER TAB)</div>
+                  {Object.entries(TAB_META).map(([tab, tm]) => (
+                    <div key={tab} style={{ display:"flex",gap:8,marginBottom:6,alignItems:"flex-start" }}>
+                      <span style={{ fontSize:13,flexShrink:0 }}>{tm.icon}</span>
+                      <div>
+                        <span style={{ fontSize:10.5,fontWeight:700,color:tm.color }}>{tab}:</span>
+                        <span style={{ fontSize:10.5,color:C.textMuted,marginLeft:4 }}>{METRICS_BY_TYPE[tab].slice(0,3).join(", ")}{METRICS_BY_TYPE[tab].length>3?` +${METRICS_BY_TYPE[tab].length-3} more`:""}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <button onClick={()=>setShowGroupInfo(false)} style={{ background:"none",border:"none",color:"#D97706",cursor:"pointer",fontSize:16,flexShrink:0,fontWeight:700 }}>✕</button>
+          </div>
+        </div>
+      )}
 
       {/* ── MAIN SPLIT ── */}
       <div ref={containerRef} style={{ flex:1,display:"flex",overflow:"hidden",minHeight:0 }}>
@@ -350,104 +621,19 @@ export default function App() {
         {/* ══ LEFT PANEL ══ */}
         <div style={{ width:`${pct}%`,display:"flex",flexDirection:"column",background:C.bg,overflow:"hidden",flexShrink:0 }}>
 
-          {/* Column headers */}
-          <div style={{ display:"grid",gridTemplateColumns:"30px 140px 1fr 1fr 34px",background:C.bgPanel,borderBottom:`1px solid ${C.border}`,flexShrink:0,userSelect:"none" }}>
-            {[{l:""},{l:"ASSET"},{l:"METRIC"},{l:"VALUE  (editable)"},{l:"PG"}].map((h,i)=>(
-              <div key={i} style={{ padding:"7px 8px",fontSize:9,fontWeight:700,color:C.textDim,letterSpacing:"0.7px",borderRight:i<4?`1px solid ${C.border}`:"none",display:"flex",alignItems:"center" }}>
-                {i===0?<input type="checkbox" style={{ width:12,height:12 }}/>:h.l}
-              </div>
-            ))}
+          {/* View mode label strip */}
+          <div style={{ background:C.bgPanel,borderBottom:`1px solid ${C.border}`,padding:"4px 12px",display:"flex",alignItems:"center",gap:8,flexShrink:0 }}>
+            <span style={{ fontSize:9,fontWeight:700,letterSpacing:"0.7px",color:C.textDim }}>
+              {viewMode==="list" ? "LIST VIEW — flat table, all assets × metrics" : "GROUP VIEW — grouped by portfolio company"}
+            </span>
+            <span style={{ fontSize:9,color:C.textDim,marginLeft:"auto" }}>
+              {viewMode==="list"?`${filtered.length} rows`:`${assets.length} companies · ${metrics.length} metrics each`}
+            </span>
           </div>
 
-          {/* Rows */}
-          <div style={{ flex:1,overflowY:"auto" }}>
-            {assets.map(asset => {
-              const meta = ASSET_META[asset] || { icon:"🏢",color:C.brand,sector:"—",country:"—",status:"—" };
-              const prog = assetProgress(asset);
-              const expanded = expandedAssets.has(asset);
+          {viewMode === "list" ? <ListView /> : <GroupView />}
 
-              const displayRows = metrics.map(metric => ({
-                id:`${asset}__${metric}`, asset, metric,
-                value: getValue(asset,metric),
-                status: getValue(asset,metric)?.trim() ? "found" : "not_found",
-                modified: isModified(asset,metric)
-              })).filter(r => filter === "found" ? r.status==="found" : filter === "not_found" ? r.status==="not_found" : true)
-                .filter(r => !searchQ || r.metric.toLowerCase().includes(searchQ.toLowerCase()) || r.asset.toLowerCase().includes(searchQ.toLowerCase()));
-
-              if (searchQ && displayRows.length === 0) return null;
-              if (filter !== "all" && displayRows.length === 0) return null;
-
-              const statusCol = meta.status==="Realized"?C.green : meta.status==="Unrealized"?C.brand : C.amber;
-              const statusBg  = meta.status==="Realized"?C.greenBg : meta.status==="Unrealized"?C.brandLight : C.amberBg;
-
-              return (
-                <div key={asset} style={{ borderBottom:`1px solid ${C.border}`,animation:"fadeUp .2s ease" }}>
-                  {/* Asset header */}
-                  <div className="asset-hdr" onClick={()=>setExpandedAssets(p=>{const n=new Set(p);n.has(asset)?n.delete(asset):n.add(asset);return n;})}
-                    style={{ display:"flex",alignItems:"center",gap:8,padding:"9px 12px",cursor:"pointer",background:expanded?C.bgPanel:C.bg,transition:"background .12s",borderLeft:`3px solid ${expanded?meta.color:"transparent"}` }}>
-                    <span style={{ fontSize:11,color:expanded?C.brand:C.textDim,flexShrink:0,width:12,transition:"color .15s" }}>{expanded?"▾":"▸"}</span>
-                    <div style={{ width:26,height:26,borderRadius:7,background:`${meta.color}18`,border:`1px solid ${meta.color}30`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0 }}>{meta.icon}</div>
-                    <div style={{ flex:1,minWidth:0 }}>
-                      <div style={{ fontSize:12,fontWeight:600,color:expanded?C.text:C.textSec,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{asset}</div>
-                      <div style={{ display:"flex",gap:5,marginTop:2,alignItems:"center" }}>
-                        <span style={{ fontSize:9,color:C.textDim }}>{meta.sector}</span>
-                        <span style={{ fontSize:9,color:C.border }}>·</span>
-                        <span style={{ fontSize:9,color:C.textDim }}>{meta.country}</span>
-                        <span style={{ fontSize:9,padding:"1px 5px",borderRadius:3,background:statusBg,color:statusCol,fontWeight:600,marginLeft:1 }}>{meta.status}</span>
-                      </div>
-                    </div>
-                    {/* Progress */}
-                    <div style={{ display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3,flexShrink:0 }}>
-                      <div style={{ display:"flex",alignItems:"center",gap:5 }}>
-                        <span style={{ fontSize:10,fontWeight:700,fontFamily:"'IBM Plex Mono',monospace",color:prog.pct===100?C.green:prog.pct>50?C.amber:C.red }}>{prog.pct}%</span>
-                        <span style={{ fontSize:9,color:C.textDim }}>{prog.filled}/{prog.total}</span>
-                      </div>
-                      <div style={{ width:52,height:3,background:C.border,borderRadius:2 }}>
-                        <div style={{ width:`${prog.pct}%`,height:"100%",borderRadius:2,background:prog.pct===100?C.green:prog.pct>50?C.amber:C.red,transition:"width .4s" }}/>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Metric rows */}
-                  {(expanded||!!searchQ) && displayRows.map((row,idx)=>{
-                    const isActive = activeCell?.asset===asset && activeCell?.metric===row.metric;
-                    return (
-                      <div key={row.id} className="row-hover" onClick={()=>setActiveCell({asset,metric:row.metric})}
-                        style={{ display:"grid",gridTemplateColumns:"30px 140px 1fr 1fr 34px",borderBottom:`1px solid #F3F4F6`,borderLeft:isActive?`3px solid ${C.brand}`:"3px solid transparent",background:isActive?C.bgActive:idx%2===0?C.bg:C.bgStripe,cursor:"pointer",transition:"border-left .1s" }}>
-                        <div className="rc" onClick={e=>e.stopPropagation()} style={{ padding:"6px 8px",display:"flex",alignItems:"center",borderRight:`1px solid ${C.border}` }}>
-                          <input type="checkbox" style={{ width:11,height:11 }}/>
-                        </div>
-                        <div className="rc" style={{ padding:"6px 8px",fontSize:10,color:C.textDim,borderRight:`1px solid ${C.border}`,display:"flex",alignItems:"center",overflow:"hidden" }}>
-                          <span style={{ overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:9.5 }}>— {row.metric.length > 20 ? row.metric.slice(0,18)+"…" : ""}</span>
-                        </div>
-                        <div className="rc" style={{ padding:"6px 8px",fontSize:11,color:C.textSec,borderRight:`1px solid ${C.border}`,display:"flex",alignItems:"center",overflow:"hidden" }}>
-                          <span style={{ overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{row.metric}</span>
-                        </div>
-                        {/* Editable value cell */}
-                        <div className="rc" onClick={e=>e.stopPropagation()} style={{ padding:"4px 8px",borderRight:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:5 }}>
-                          {row.status==="found"&&!row.modified && <span style={{ width:5,height:5,borderRadius:"50%",background:C.green,display:"inline-block",flexShrink:0 }}/>}
-                          {row.modified && <span style={{ width:5,height:5,borderRadius:"50%",background:C.amber,display:"inline-block",flexShrink:0 }} title="Modified"/>}
-                          {row.status==="not_found"&&!row.modified && <span style={{ width:5,height:5,borderRadius:"50%",background:C.border,display:"inline-block",flexShrink:0 }}/>}
-                          <input
-                            className={`val-input ${row.modified?"modified":row.status==="found"?"filled":"empty"}`}
-                            value={row.value}
-                            placeholder="not found — type to add"
-                            onChange={e=>setValue(asset,row.metric,e.target.value)}
-                            onClick={e=>{e.stopPropagation();setActiveCell({asset,metric:row.metric});}}
-                          />
-                        </div>
-                        <div className="rc" style={{ padding:"6px 5px",fontSize:10,color:C.brand,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'IBM Plex Mono',monospace",fontWeight:600 }}>
-                          {row.status==="found"||row.modified?"4":"—"}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Left footer */}
+          {/* Footer */}
           <div style={{ padding:"7px 14px",borderTop:`1px solid ${C.border}`,background:C.bgPanel,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0 }}>
             <span style={{ fontSize:10,color:C.textDim,fontFamily:"'IBM Plex Mono',monospace" }}>
               {allRows.length} rows · {foundRows.length} found · {missingRows.length} missing
@@ -471,17 +657,16 @@ export default function App() {
 
         {/* ══ RIGHT PANEL: PDF ══ */}
         <div style={{ flex:1,display:"flex",flexDirection:"column",background:"#ECECF0",overflow:"hidden",minWidth:0 }}>
-          {/* PDF breadcrumb */}
+          {/* breadcrumb */}
           <div style={{ background:C.bg,borderBottom:`1px solid ${C.border}`,padding:"8px 16px",display:"flex",alignItems:"center",gap:8,flexShrink:0 }}>
             <div style={{ flex:1,overflow:"hidden",display:"flex",alignItems:"center",gap:5 }}>
               <span style={{ fontSize:11,color:C.brand,fontWeight:600,flexShrink:0 }}>{selectedFund.name}</span>
-              <span style={{ color:C.textDim,flexShrink:0 }}>›</span>
+              <span style={{ color:C.textDim }}>›</span>
               <span style={{ fontSize:11,color:C.textMuted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{selectedFund.short} - {selectedFund.reportDate} Fund Report.pdf · Performance Report · To Do</span>
             </div>
             <button style={{ background:C.bgPanel,border:`1px solid ${C.border}`,color:C.textMuted,padding:"4px 12px",borderRadius:6,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit",flexShrink:0 }}>BACK</button>
             <button style={{ background:C.brand,border:"none",color:"#fff",padding:"4px 14px",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",flexShrink:0 }}>FINISH</button>
           </div>
-
           {/* PDF toolbar */}
           <div style={{ background:C.bg,borderBottom:`1px solid ${C.border}`,padding:"6px 16px",display:"flex",alignItems:"center",gap:10,flexShrink:0,flexWrap:"wrap" }}>
             <span style={{ fontSize:9.5,color:C.textDim,fontWeight:700,letterSpacing:"0.5px" }}>SEARCH</span>
@@ -491,7 +676,7 @@ export default function App() {
             </div>
             <div style={{ width:1,height:16,background:C.border }}/>
             <span style={{ fontSize:9.5,color:C.textDim,fontWeight:700,letterSpacing:"0.5px" }}>VIEW</span>
-            <div style={{ display:"flex",alignItems:"center",gap:1,background:C.bgPanel,border:`1px solid ${C.border}`,borderRadius:5,padding:"1px 2px" }}>
+            <div style={{ display:"flex",alignItems:"center",background:C.bgPanel,border:`1px solid ${C.border}`,borderRadius:5,padding:"1px 2px" }}>
               <button onClick={()=>setZoom(z=>Math.max(50,z-10))} style={{ background:"none",border:"none",color:C.textMuted,cursor:"pointer",padding:"2px 7px",fontSize:14,fontFamily:"inherit" }}>−</button>
               <span style={{ fontSize:11,color:C.textSec,minWidth:38,textAlign:"center",fontFamily:"'IBM Plex Mono',monospace" }}>{zoom}%</span>
               <button onClick={()=>setZoom(z=>Math.min(200,z+10))} style={{ background:"none",border:"none",color:C.textMuted,cursor:"pointer",padding:"2px 7px",fontSize:14,fontFamily:"inherit" }}>+</button>
@@ -509,12 +694,10 @@ export default function App() {
               ))}
             </div>
           </div>
-
           {/* PDF canvas */}
           <div style={{ flex:1,overflowY:"auto",padding:"28px 24px",display:"flex",justifyContent:"center",alignItems:"flex-start" }}>
             <PDFPage page={pdfPage} fund={selectedFund} zoom={zoom} highlightedValues={highlightedValues} activeCell={activeCell}/>
           </div>
-
           {/* Highlight bar */}
           <div style={{ background:C.bg,borderTop:`1px solid ${C.border}`,padding:"8px 16px",display:"flex",alignItems:"center",gap:16,flexShrink:0 }}>
             <span style={{ fontSize:9.5,color:C.textDim,fontWeight:700,letterSpacing:"0.8px",flexShrink:0 }}>HIGHLIGHT</span>
@@ -529,8 +712,8 @@ export default function App() {
             {activeCell && highlightMode==="single" && (
               <div style={{ marginLeft:"auto",display:"flex",alignItems:"center",gap:6,background:C.amberBg,border:`1px solid #FDE68A`,borderRadius:6,padding:"3px 10px",flexShrink:0,animation:"fadeUp .2s ease" }}>
                 <span style={{ width:5,height:5,borderRadius:"50%",background:C.amber,display:"inline-block" }}/>
-                <span style={{ fontSize:11,color:C.amberText,maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{activeCell.asset} · {activeCell.metric}</span>
-                <button onClick={()=>setActiveCell(null)} style={{ background:"none",border:"none",color:C.amber,cursor:"pointer",fontSize:11,padding:0,marginLeft:2,fontWeight:700 }}>✕</button>
+                <span style={{ fontSize:11,color:"#92400E",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{activeCell.asset} · {activeCell.metric}</span>
+                <button onClick={()=>setActiveCell(null)} style={{ background:"none",border:"none",color:C.amber,cursor:"pointer",fontSize:12,padding:0,marginLeft:2,fontWeight:700 }}>✕</button>
               </div>
             )}
           </div>
@@ -540,32 +723,27 @@ export default function App() {
   );
 }
 
-// ─── Fund Selection Screen ────────────────────────────────────────────────────
+// ─── Fund Selection Screen ─────────────────────────────────────────────────────
 function FundSelectionScreen({ onSelect }) {
   const [hovered, setHovered] = useState(null);
   const [search, setSearch]   = useState("");
-
   const filtered = FUNDS.filter(f =>
     f.name.toLowerCase().includes(search.toLowerCase()) ||
     f.strategy.toLowerCase().includes(search.toLowerCase()) ||
     f.manager.toLowerCase().includes(search.toLowerCase())
   );
-
-  const strategyColor = { "Buyout":"#6C3AED","Growth Equity":"#059669","Infrastructure":"#2563EB","Real Assets":"#D97706" };
-  const statusColor   = { "Active":"#059669","Harvesting":"#D97706","Deploying":"#2563EB" };
-  const statusBg      = { "Active":"#ECFDF5","Harvesting":"#FFFBEB","Deploying":"#EFF6FF" };
-
+  const SC = { "Buyout":"#6C3AED","Growth Equity":"#059669","Infrastructure":"#2563EB","Real Assets":"#D97706" };
+  const stC = { "Active":"#059669","Harvesting":"#D97706","Deploying":"#2563EB" };
+  const stB = { "Active":"#ECFDF5","Harvesting":"#FFFBEB","Deploying":"#EFF6FF" };
   return (
-    <div style={{ fontFamily:"'IBM Plex Sans','Helvetica Neue',sans-serif", background:"#F8F9FB", minHeight:"100vh", display:"flex", flexDirection:"column" }}>
+    <div style={{ fontFamily:"'IBM Plex Sans','Helvetica Neue',sans-serif",background:"#F8F9FB",minHeight:"100vh",display:"flex",flexDirection:"column" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
         @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-        .fund-card:hover{border-color:#6C3AED!important;box-shadow:0 6px 24px rgba(108,58,237,.12)!important;transform:translateY(-2px);}
+        .fund-card:hover{border-color:#6C3AED!important;box-shadow:0 6px 24px rgba(108,58,237,.13)!important;transform:translateY(-2px);}
         .fund-card{transition:all .2s ease;}
       `}</style>
-
-      {/* Nav */}
       <div style={{ background:"#1E0A3C",display:"flex",alignItems:"center",padding:"0 24px",height:52,flexShrink:0 }}>
         <div style={{ display:"flex",alignItems:"center",gap:8 }}>
           <div style={{ width:30,height:30,background:"linear-gradient(135deg,#7C3AED,#A855F7)",borderRadius:7,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,color:"#fff" }}>A</div>
@@ -574,37 +752,23 @@ function FundSelectionScreen({ onSelect }) {
         <div style={{ flex:1 }}/>
         <div style={{ width:30,height:30,borderRadius:"50%",background:"linear-gradient(135deg,#7C3AED,#A855F7)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff" }}>BL</div>
       </div>
-
       <div style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",padding:"52px 24px" }}>
-        {/* Hero */}
         <div style={{ textAlign:"center",marginBottom:40,animation:"fadeUp .35s ease" }}>
-          <div style={{ display:"inline-flex",alignItems:"center",gap:6,background:"#EDE9FE",border:"1px solid #DDD6FE",borderRadius:20,padding:"4px 14px",fontSize:11,fontWeight:700,color:"#6C3AED",letterSpacing:"0.5px",marginBottom:16 }}>
-            STEP 2 OF 2 · VALIDATE METRICS
-          </div>
+          <div style={{ display:"inline-flex",alignItems:"center",gap:6,background:"#EDE9FE",border:"1px solid #DDD6FE",borderRadius:20,padding:"4px 14px",fontSize:11,fontWeight:700,color:"#6C3AED",letterSpacing:"0.5px",marginBottom:16 }}>STEP 2 OF 2 · VALIDATE METRICS</div>
           <h1 style={{ fontSize:34,fontWeight:700,color:"#111827",letterSpacing:"-0.8px",lineHeight:1.2,marginBottom:12 }}>Select a Fund to Validate</h1>
-          <p style={{ fontSize:14,color:"#6B7280",maxWidth:500,lineHeight:1.7,margin:"0 auto" }}>
-            Choose a fund to load its quarterly report. You'll review extracted metrics, correct any errors, and approve the data before it enters your system.
-          </p>
+          <p style={{ fontSize:14,color:"#6B7280",maxWidth:500,lineHeight:1.7,margin:"0 auto" }}>Choose a fund to open its quarterly report. Review extracted metrics, correct any errors, and approve the data.</p>
         </div>
-
-        {/* Search */}
         <div style={{ display:"flex",alignItems:"center",gap:8,background:"#fff",border:"1.5px solid #E5E7EB",borderRadius:10,padding:"10px 16px",width:"100%",maxWidth:520,marginBottom:36,boxShadow:"0 1px 4px rgba(0,0,0,.06)",animation:"fadeUp .45s ease" }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by fund name, strategy or manager…" style={{ background:"none",border:"none",color:"#111827",fontSize:13,fontFamily:"inherit",outline:"none",flex:1 }}/>
         </div>
-
-        {/* Fund grid */}
         <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:16,width:"100%",maxWidth:1080 }}>
           {filtered.map((fund,i)=>{
-            const sc  = strategyColor[fund.strategy]||"#6C3AED";
-            const stc = statusColor[fund.status]||"#059669";
-            const stb = statusBg[fund.status]||"#ECFDF5";
+            const sc=SC[fund.strategy]||"#6C3AED", stc=stC[fund.status]||"#059669", stb=stB[fund.status]||"#ECFDF5";
             return (
               <div key={fund.id} className="fund-card" onClick={()=>onSelect(fund)} onMouseEnter={()=>setHovered(fund.id)} onMouseLeave={()=>setHovered(null)}
                 style={{ background:"#fff",border:"1.5px solid #E5E7EB",borderRadius:14,padding:"20px 22px",cursor:"pointer",animation:`fadeUp ${.3+i*.07}s ease`,position:"relative",overflow:"hidden",boxShadow:"0 1px 4px rgba(0,0,0,.05)" }}>
-                {/* Top color bar */}
                 <div style={{ position:"absolute",top:0,left:0,right:0,height:3,background:sc,borderRadius:"14px 14px 0 0" }}/>
-                {/* Header */}
                 <div style={{ display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:14 }}>
                   <div style={{ flex:1 }}>
                     <div style={{ display:"flex",gap:6,marginBottom:8,flexWrap:"wrap" }}>
@@ -616,7 +780,6 @@ function FundSelectionScreen({ onSelect }) {
                   </div>
                   <div style={{ width:40,height:40,borderRadius:10,background:`${sc}10`,border:`1px solid ${sc}20`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0,marginLeft:14 }}>📁</div>
                 </div>
-                {/* KPIs */}
                 <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:7,marginBottom:14 }}>
                   {[["Fund Size",fund.size],["NAV",fund.nav],["Net IRR",fund.irr],["TVPI",fund.tvpi],["Vintage",fund.vintage.toString()],["Assets",fund.assetsCount+" cos"]].map(([l,v])=>(
                     <div key={l} style={{ background:"#F9FAFB",borderRadius:7,padding:"8px 10px",border:"1px solid #F3F4F6" }}>
@@ -625,7 +788,6 @@ function FundSelectionScreen({ onSelect }) {
                     </div>
                   ))}
                 </div>
-                {/* Report row */}
                 <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 12px",background:"#F9FAFB",borderRadius:8,border:"1px solid #F3F4F6" }}>
                   <div style={{ display:"flex",alignItems:"center",gap:8 }}>
                     <span style={{ fontSize:15 }}>📄</span>
@@ -634,15 +796,12 @@ function FundSelectionScreen({ onSelect }) {
                       <div style={{ fontSize:10,color:"#9CA3AF",marginTop:1 }}>Performance Report · Ready to validate</div>
                     </div>
                   </div>
-                  <div style={{ background:hovered===fund.id?"#6C3AED":"#EDE9FE",border:`1px solid ${hovered===fund.id?"#6C3AED":"#DDD6FE"}`,borderRadius:7,padding:"5px 13px",fontSize:11,color:hovered===fund.id?"#fff":"#6C3AED",fontWeight:600,transition:"all .2s",flexShrink:0 }}>
-                    Open →
-                  </div>
+                  <div style={{ background:hovered===fund.id?"#6C3AED":"#EDE9FE",border:`1px solid ${hovered===fund.id?"#6C3AED":"#DDD6FE"}`,borderRadius:7,padding:"5px 13px",fontSize:11,color:hovered===fund.id?"#fff":"#6C3AED",fontWeight:600,transition:"all .2s",flexShrink:0 }}>Open →</div>
                 </div>
               </div>
             );
           })}
         </div>
-
         {filtered.length===0&&(
           <div style={{ textAlign:"center",color:"#9CA3AF",padding:"48px 0" }}>
             <div style={{ fontSize:36,marginBottom:10 }}>🔍</div>
@@ -654,15 +813,15 @@ function FundSelectionScreen({ onSelect }) {
   );
 }
 
-// ─── Loading Screen ────────────────────────────────────────────────────────────
+// ─── Loading Screen ───────────────────────────────────────────────────────────
 function LoadingScreen() {
   return (
     <div style={{ fontFamily:"'IBM Plex Sans',sans-serif",background:"#F8F9FB",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:20 }}>
-      <style>{`@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}} @keyframes shimmer{0%,100%{transform:translateX(-100%)}100%{transform:translateX(100%)}}`}</style>
+      <style>{`@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}} @keyframes barslide{0%{left:-60%}100%{left:110%}}`}</style>
       <div style={{ width:48,height:48,background:"linear-gradient(135deg,#7C3AED,#A855F7)",borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,fontWeight:800,color:"#fff",animation:"spin 1.5s linear infinite",boxShadow:"0 4px 20px rgba(124,58,237,.3)" }}>A</div>
-      <div style={{ fontSize:14,color:"#6B7280",fontFamily:"'IBM Plex Sans',sans-serif" }}>Loading fund report…</div>
+      <div style={{ fontSize:14,color:"#6B7280" }}>Loading fund report…</div>
       <div style={{ width:200,height:4,background:"#E5E7EB",borderRadius:2,overflow:"hidden",position:"relative" }}>
-        <div style={{ position:"absolute",left:0,top:0,height:"100%",width:"60%",background:"linear-gradient(90deg,#7C3AED,#A855F7)",borderRadius:2,animation:"shimmer 1s ease infinite" }}/>
+        <div style={{ position:"absolute",top:0,height:"100%",width:"55%",background:"linear-gradient(90deg,#7C3AED,#A855F7)",borderRadius:2,animation:"barslide 1s ease infinite" }}/>
       </div>
     </div>
   );
@@ -671,7 +830,6 @@ function LoadingScreen() {
 // ─── PDF Page ─────────────────────────────────────────────────────────────────
 function PDFPage({ page, fund, zoom, highlightedValues, activeCell }) {
   const s = zoom / 100;
-
   function HL({ text }) {
     if (!text||!highlightedValues.length) return <>{text}</>;
     let parts=[text];
@@ -684,9 +842,7 @@ function PDFPage({ page, fund, zoom, highlightedValues, activeCell }) {
     });
     return <>{parts}</>;
   }
-
-  const base = { width:`${750*s}px`,minHeight:`${1060*s}px`,background:"#fff",borderRadius:3,boxShadow:"0 4px 30px rgba(0,0,0,.15)",overflow:"hidden",flexShrink:0,fontFamily:"'IBM Plex Sans','Helvetica Neue',sans-serif",color:"#1A202C",fontSize:`${11.5*s}px`,transition:"width .2s" };
-
+  const base = { width:`${750*s}px`,minHeight:`${1060*s}px`,background:"#fff",borderRadius:3,boxShadow:"0 4px 30px rgba(0,0,0,.14)",overflow:"hidden",flexShrink:0,fontFamily:"'IBM Plex Sans','Helvetica Neue',sans-serif",color:"#1A202C",fontSize:`${11.5*s}px`,transition:"width .2s" };
   const Header = () => (
     <div>
       <div style={{ background:"#1E0A3C",padding:`${13*s}px ${24*s}px`,display:"flex",alignItems:"center",justifyContent:"space-between" }}>
@@ -705,9 +861,8 @@ function PDFPage({ page, fund, zoom, highlightedValues, activeCell }) {
       <div style={{ height:3*s,background:"linear-gradient(90deg,#7C3AED,#A855F7,#EC4899,#7C3AED)" }}/>
     </div>
   );
-
   if (page === 4) {
-    const T = [
+    const T=[
       {name:"Local Standing & Move",  date:"Dec-12",wecp:"87.8%",cap:"77.5", real:"236.4",unreal:"—",  tot:"236.4",moic:"3.1x",irr:"51.5%", s:"realized"},
       {name:"Great Sea Smoothing",    date:"May-14",wecp:"70.2%",cap:"62.2", real:"171.9",unreal:"2.3",tot:"174.2",moic:"2.8x",irr:"48.6%", s:"realized"},
       {name:"Watchmen International", date:"Oct-14",wecp:"61.5%",cap:"85.1", real:"259.4",unreal:"—",  tot:"259.4",moic:"3.0x",irr:"78.5%", s:"realized"},
@@ -719,10 +874,10 @@ function PDFPage({ page, fund, zoom, highlightedValues, activeCell }) {
     const isHL=(v)=>highlightedValues.some(h=>h&&v&&v.toString().includes(h));
     const vals=(r)=>[r.date,r.wecp,r.cap,r.real,r.unreal,r.tot,r.moic,r.irr];
     const ths=["($ in millions)","Entry Date",`${fund.short} Ownership`,"Capital Invested","Realized Proceeds","Unrealized Value","Total Value","Multiple of Cost","Gross IRR"];
-    const SubRow=({label,data,bg,textCol="#fff"})=>(
+    const SubRow=({label,data,bg})=>(
       <tr style={{background:bg}}>
-        <td colSpan={3} style={{padding:`${5*s}px ${6*s}px`,color:textCol,fontSize:`${9.5*s}px`,fontWeight:700}}>{label}</td>
-        {data.map((v,i)=><td key={i} style={{padding:`${5*s}px ${6*s}px`,color:textCol,fontSize:`${10*s}px`,fontWeight:700,textAlign:"right",fontFamily:"'IBM Plex Mono',monospace"}}>{v}</td>)}
+        <td colSpan={3} style={{padding:`${5*s}px ${6*s}px`,color:"#fff",fontSize:`${9.5*s}px`,fontWeight:700}}>{label}</td>
+        {data.map((v,i)=><td key={i} style={{padding:`${5*s}px ${6*s}px`,color:"#fff",fontSize:`${10*s}px`,fontWeight:700,textAlign:"right",fontFamily:"'IBM Plex Mono',monospace"}}>{v}</td>)}
       </tr>
     );
     return (
@@ -780,7 +935,6 @@ function PDFPage({ page, fund, zoom, highlightedValues, activeCell }) {
       </div>
     );
   }
-
   const gMap={1:{t:"Cover Page",i:"📋",d:`${fund.name} · ${fund.reportDate}`},2:{t:"Table of Contents",i:"📑",d:"Document navigation index"},3:{t:"Executive Summary",i:"📊",d:"Key performance highlights and fund status"},5:{t:"Asset Detail — Local Standing & Move",i:"🏦",d:"Portfolio company deep dive"},6:{t:"Asset Detail — Great Sea Smoothing",i:"🌊",d:"Portfolio company deep dive"},7:{t:"Asset Detail — Watchmen International",i:"🔐",d:"Portfolio company deep dive"},8:{t:"Asset Detail — Expert Crew",i:"⚙️",d:"Portfolio company deep dive"}};
   const g=gMap[page]||{t:`Page ${page}`,i:"📄",d:""};
   return (

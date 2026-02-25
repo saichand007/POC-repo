@@ -172,17 +172,61 @@ const StatusTag = ({ status }) => {
 };
 
 const AiFixCell = ({ value, fix, status }) => {
-  if (!fix) return <Text style={{ fontSize: 12 }}>{value}</Text>;
-  const bg     = { accepted: '#f6ffed', corrected: '#fffbe6' }[status] || '#e6f4ff';
-  const border = { accepted: '#52c41a', corrected: '#faad14' }[status] || '#1677ff';
+  // For plain cells (no AI fix): track user edits live
+  const initialVal = fix ? fix.value : value;
+  const [current,  setCurrent]  = useState(initialVal);
+  const [original, setOriginal] = useState(null); // set on first edit
+
+  const handleChange = (e) => {
+    const next = e.target.value;
+    // Capture the original only once, on the very first keystroke
+    if (original === null) {
+      setOriginal(current);
+    }
+    setCurrent(next);
+  };
+
+  // Decide display for the "before" value shown with strikethrough
+  // Priority: explicit originalValue from AI fix > user-edited original
+  const strikeValue = fix?.originalValue ?? (original !== null && original !== current ? original : null);
+
+  const bg     = { accepted: '#f6ffed', corrected: '#fffbe6' }[status] || (fix ? '#e6f4ff' : 'transparent');
+  const border = { accepted: '#52c41a', corrected: '#faad14' }[status] || (fix ? '#1677ff' : '#d9d9d9');
+
+  const hasChange = strikeValue !== null;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {fix.originalValue && <Text delete style={{ fontSize: 10, color: '#bfbfbf' }}>{fix.originalValue}</Text>}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 60 }}>
+      {hasChange && (
+        <Text
+          delete
+          style={{ fontSize: 10, color: '#bfbfbf', lineHeight: 1.4, fontFamily: 'monospace' }}
+        >
+          {strikeValue}
+        </Text>
+      )}
       <Input
-        defaultValue={fix.value} size="small"
-        style={{ fontFamily: 'monospace', fontSize: 12, background: bg, borderColor: border, borderRadius: 6 }}
-        suffix={status !== 'corrected' && status !== 'accepted'
-          ? <ThunderboltOutlined style={{ color: '#1677ff', fontSize: 11 }} /> : null}
+        value={current}
+        size="small"
+        onChange={handleChange}
+        style={{
+          fontFamily: 'monospace',
+          fontSize: 12,
+          background: hasChange
+            ? (fix ? bg : '#fffbe6')
+            : bg,
+          borderColor: hasChange
+            ? (fix ? border : '#faad14')
+            : border,
+          borderRadius: 6,
+          borderWidth: hasChange || fix ? 1 : 1,
+        }}
+        suffix={!fix && !hasChange
+          ? null
+          : (!['corrected','accepted'].includes(status)
+              ? <ThunderboltOutlined style={{ color: '#1677ff', fontSize: 11 }} />
+              : null)
+        }
       />
     </div>
   );

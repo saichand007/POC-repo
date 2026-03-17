@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1558D6" />
+    <meta name="description" content="RCA Platform — Root Cause Analysis for financial operations" />
+    <title>RCA Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      html, body, #root { height: 100%; margin: 0; padding: 0; }
+      body { font-family: 'IBM Plex Sans', system-ui, sans-serif; background: #F8F9FB; }
+      #root-loader {
+        position: fixed; inset: 0; display: flex; align-items: center;
+        justify-content: center; background: #F8F9FB; z-index: 9999;
+      }
+      #root-loader svg { animation: spin 1s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    <div id="root-loader">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1558D6" stroke-width="2.5">
+        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+      </svg>
+    </div>
+    <div id="root"></div>
+  </body>
+</html>
